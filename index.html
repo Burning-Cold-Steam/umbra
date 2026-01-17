@@ -80,6 +80,7 @@
       background-size:180px 180px;
     }
 
+    /* Upload overlay */
     .uploadOverlay{
       position:absolute; inset:0;
       display:grid; place-items:center;
@@ -171,9 +172,40 @@
     .loaded .uploadOverlay{opacity:0;pointer-events:none;transform:scale(.985)}
     .loaded .controls{display:flex}
     .reveal .affirmation{opacity:1;transform:none}
-
-    /* Retry is optional: hidden until 20s after first load */
     .retryHidden #retryBtn{display:none}
+
+    /* Loading overlay (for slow actions) */
+    .busyOverlay{
+      position:absolute; inset:0;
+      display:grid; place-items:center;
+      z-index:50;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .15s ease;
+      background:rgba(0,0,0,.35);
+    }
+    .busyOverlay.show{opacity:1; pointer-events:auto;}
+    .busyCard{
+      width:min(360px, 88%);
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(0,0,0,.45);
+      border-radius:16px;
+      padding:16px 16px;
+      text-align:center;
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+    .busyTitle{margin:0 0 6px; font-weight:800; font-size:14px}
+    .busyText{margin:0; color:rgba(255,255,255,.75); font-size:13px; line-height:1.25}
+    .spinner{
+      width:18px; height:18px;
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,.25);
+      border-top-color:rgba(255,255,255,.85);
+      margin:10px auto 0;
+      animation:spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 
@@ -192,7 +224,7 @@
         <div class="controls">
           <button type="button" id="downloadPng" disabled>Download PNG</button>
           <button type="button" id="copyPng" disabled>Copy PNG</button>
-          <button type="button" id="shareBtn" disabled>Share / Save</button>
+          <button type="button" id="openPage" disabled>Open Save Page</button>
           <button type="button" id="fitBtn" disabled>Fit</button>
           <button type="button" id="retryBtn" disabled>Retry</button>
         </div>
@@ -204,7 +236,7 @@
           <p class="sub" id="affirmSub"></p>
         </div>
 
-        <div class="uploadOverlay" id="uploadOverlay">
+        <div class="uploadOverlay">
           <div class="dropzone" id="dropzone">
             <h2>Add your photo</h2>
             <p>Choose or drop an image. The message appears after the photo loads.</p>
@@ -212,6 +244,14 @@
               <button type="button" id="chooseBtn">Choose image</button>
             </div>
             <input id="file" type="file" accept="image/*" hidden>
+          </div>
+        </div>
+
+        <div class="busyOverlay" id="busy">
+          <div class="busyCard">
+            <p class="busyTitle" id="busyTitle">Working…</p>
+            <p class="busyText" id="busyText">This can take a moment on some iPhones.</p>
+            <div class="spinner"></div>
           </div>
         </div>
 
@@ -234,14 +274,21 @@
 
     const downloadBtn = document.getElementById('downloadPng');
     const copyBtn = document.getElementById('copyPng');
-    const shareBtn = document.getElementById('shareBtn');
+    const openPageBtn = document.getElementById('openPage');
     const fitBtn = document.getElementById('fitBtn');
     const retryBtn = document.getElementById('retryBtn');
 
+    const busy = document.getElementById('busy');
+    const busyTitle = document.getElementById('busyTitle');
+    const busyText = document.getElementById('busyText');
+
     const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent) && !window.MSStream;
 
+    // Track object URL for memory cleanup
+    let currentObjectURL = null;
+
     // -------------------------
-    // Time-of-day affirmations (~30 total)
+    // Time-of-day affirmations (30 total: 8 + 8 + 7 + 7)
     // -------------------------
     const MORNING = [
       { main: "This person is allowed a gentle start.", sub: "You don’t need to rush to be worthy." },
@@ -323,18 +370,29 @@
       return Math.min(pw / iw, ph / ih) * 0.98;
     }
 
+    function resetGestureBaseline(){
+      pointers.clear();
+      lastPinchDist = null;
+    }
+
     function fitToScreen(){
       x = 0; y = 0;
       baseScale = computeContainScale();
       scale = baseScale;
+
+      // allow blank margins when zooming out
       minScale = baseScale * 0.35;
       maxScale = Math.max(3.0, baseScale * 6);
+
       apply();
       resetGestureBaseline();
     }
 
     // -------------------------
     // Timers (ONLY from initial image load)
+    // - Hide hint after 5s
+    // - Reveal affirmation after 6s
+    // - Show retry button after 20s
     // Retry does NOT restart these.
     // -------------------------
     let timersStarted = false;
@@ -346,49 +404,66 @@
       poster.classList.remove('hintHidden');
       poster.classList.add('retryHidden');
 
-      setTimeout(() => poster.classList.add('reveal'), 6000);
       setTimeout(() => poster.classList.add('hintHidden'), 5000);
+      setTimeout(() => poster.classList.add('reveal'), 6000);
       setTimeout(() => poster.classList.remove('retryHidden'), 20000);
     }
 
     // -------------------------
-    // Upload handling
+    // Busy overlay helpers
+    // -------------------------
+    function showBusy(title, text){
+      busyTitle.textContent = title || "Working…";
+      busyText.textContent = text || "This can take a moment.";
+      busy.classList.add('show');
+    }
+    function hideBusy(){
+      busy.classList.remove('show');
+    }
+
+    // -------------------------
+    // Upload handling (fast on iOS)
     // -------------------------
     chooseBtn.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0];
-      if (f) loadImage(f);
+      if (f) loadImageFast(f);
     });
 
     dropzone.addEventListener('dragover', (e) => e.preventDefault());
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) loadImage(f);
+      if (f) loadImageFast(f);
     });
 
-    function loadImage(fileObj){
+    async function loadImageFast(fileObj){
       pickAffirmation();
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        photo.onload = () => {
-          poster.classList.add('loaded');
+      // revoke previous object URL to avoid memory buildup
+      if (currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+        currentObjectURL = null;
+      }
 
-          downloadBtn.disabled = false;
-          copyBtn.disabled = false;
-          shareBtn.disabled = false;
-          fitBtn.disabled = false;
-          retryBtn.disabled = false;
+      // Fast preview via object URL (avoids base64 on iOS)
+      currentObjectURL = URL.createObjectURL(fileObj);
 
-          fitToScreen();
-          startOneTimeTimers();
-        };
-        photo.src = reader.result;
-        photo.alt = "User photo";
+      photo.onload = () => {
+        poster.classList.add('loaded');
+        downloadBtn.disabled = false;
+        copyBtn.disabled = false;
+        openPageBtn.disabled = false;
+        fitBtn.disabled = false;
+        retryBtn.disabled = false;
+
+        fitToScreen();
+        startOneTimeTimers();
       };
-      reader.readAsDataURL(fileObj);
+
+      photo.src = currentObjectURL;
+      photo.alt = "User photo";
     }
 
     // Fit button
@@ -397,7 +472,7 @@
       fitToScreen();
     });
 
-    // Retry: optional; swaps text only
+    // Retry: optional; swaps text only; does not restart timers
     retryBtn.addEventListener('click', () => {
       if(!poster.classList.contains('loaded')) return;
       pickAffirmation();
@@ -428,11 +503,6 @@
       const dx = a.clientX - b.clientX;
       const dy = a.clientY - b.clientY;
       return Math.hypot(dx, dy);
-    }
-
-    function resetGestureBaseline(){
-      pointers.clear();
-      lastPinchDist = null;
     }
 
     poster.addEventListener('pointerdown', (e) => {
@@ -498,6 +568,7 @@
     poster.addEventListener('pointerup', endPointer);
     poster.addEventListener('pointercancel', endPointer);
 
+    // Desktop wheel zoom
     poster.addEventListener('wheel', (e) => {
       if(!poster.classList.contains('loaded')) return;
       e.preventDefault();
@@ -507,99 +578,7 @@
       apply();
     }, { passive: false });
 
-    // -------------------------
-    // Export / Share (iOS-safe)
-    // -------------------------
-    async function captureCanvas(){
-      return await html2canvas(poster, {
-        scale: 2,
-        backgroundColor: "#0b0c10",
-        useCORS: true
-      });
-    }
-
-    async function canvasToBlob(canvas){
-      return await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    }
-
-    function openImageFallback(dataUrl){
-      const w = window.open();
-      if (w) {
-        w.document.write(`<meta name="viewport" content="width=device-width,initial-scale=1">
-          <title>Save Image</title>
-          <style>body{margin:0;background:#000;display:grid;place-items:center;min-height:100vh}img{max-width:100%;height:auto}</style>
-          <img src="${dataUrl}" alt="poster">`);
-        w.document.close();
-      } else {
-        window.location.href = dataUrl;
-      }
-    }
-
-    async function shareOrSavePNG(){
-      const canvas = await captureCanvas();
-      const blob = await canvasToBlob(canvas);
-
-      if (navigator.share) {
-        try{
-          const file = new File([blob], "poster.png", { type: "image/png" });
-          await navigator.share({ files: [file], title: "Poster", text: "" });
-          return;
-        } catch (e) {
-          // user cancelled or share failed -> fallback below
-        }
-      }
-
-      const dataUrl = canvas.toDataURL("image/png");
-      openImageFallback(dataUrl);
-    }
-
-    async function downloadPNG(){
-      if (isIOS) return shareOrSavePNG();
-
-      const canvas = await captureCanvas();
-      const blob = await canvasToBlob(canvas);
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "poster.png";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-    }
-
-    async function copyPNG(){
-      if (isIOS) return shareOrSavePNG();
-
-      const canvas = await captureCanvas();
-      const blob = await canvasToBlob(canvas);
-
-      if (navigator.clipboard && window.ClipboardItem) {
-        try{
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          alert("Copied as PNG. Paste into apps that support image paste.");
-          return;
-        } catch (e) {
-          // fallback to download below
-        }
-      }
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "poster.png";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-    }
-
-    downloadBtn.addEventListener('click', downloadPNG);
-    copyBtn.addEventListener('click', copyPNG);
-    shareBtn.addEventListener('click', shareOrSavePNG);
-
+    // Maintain relative zoom on resize/orientation
     window.addEventListener('resize', () => {
       if (!poster.classList.contains('loaded')) return;
       const prevBase = baseScale || 1;
@@ -613,6 +592,136 @@
       apply();
       resetGestureBaseline();
     });
+
+    // -------------------------
+    // Export: ALWAYS works on iOS by opening a Save Page
+    // -------------------------
+    async function captureCanvas(){
+      return await html2canvas(poster, {
+        scale: 2,
+        backgroundColor: "#0b0c10",
+        useCORS: true
+      });
+    }
+
+    async function canvasToBlob(canvas){
+      return await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    }
+
+    function openSavePage(dataUrl){
+      // Opens a new page with the image + iOS instructions.
+      const w = window.open("", "_blank");
+      if (!w){
+        // popup blocked, fallback to navigation
+        window.location.href = dataUrl;
+        return;
+      }
+      const safeHtml = `
+        <!doctype html>
+        <html>
+        <head>
+          <meta charset="utf-8"/>
+          <meta name="viewport" content="width=device-width,initial-scale=1"/>
+          <title>Save Poster</title>
+          <style>
+            body{margin:0;background:#000;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+            .top{position:sticky;top:0;padding:12px 14px;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.12)}
+            .top h1{margin:0;font-size:14px;font-weight:800}
+            .top p{margin:6px 0 0;font-size:12px;color:rgba(255,255,255,.75);line-height:1.3}
+            .imgWrap{display:grid;place-items:center;padding:12px}
+            img{max-width:100%;height:auto;border-radius:14px;border:1px solid rgba(255,255,255,.12)}
+            a.btn{display:inline-block;margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);color:#fff;text-decoration:none;background:rgba(255,255,255,.08)}
+          </style>
+        </head>
+        <body>
+          <div class="top">
+            <h1>Save your poster</h1>
+            <p>On iPhone/iPad: press and hold the image → <b>Save to Photos</b> or <b>Share</b>.<br/>If you’re on desktop, use right-click → Save image.</p>
+          </div>
+          <div class="imgWrap">
+            <img src="${dataUrl}" alt="poster"/>
+            <a class="btn" href="${dataUrl}" download="poster.png">Try Download</a>
+          </div>
+        </body>
+        </html>
+      `;
+      w.document.open();
+      w.document.write(safeHtml);
+      w.document.close();
+    }
+
+    async function openSavePageFromCapture(){
+      showBusy("Creating image…", "This can take a moment on iPhones (high-res photos).");
+      try{
+        const canvas = await captureCanvas();
+        const dataUrl = canvas.toDataURL("image/png");
+        openSavePage(dataUrl);
+      } finally {
+        hideBusy();
+      }
+    }
+
+    // Download (PC/Android). iOS -> open save page.
+    async function downloadPNG(){
+      if (!poster.classList.contains('loaded')) return;
+
+      // iOS / in-app browser: always use save page
+      if (isIOS) return openSavePageFromCapture();
+
+      showBusy("Preparing download…", "Hang tight.");
+      try{
+        const canvas = await captureCanvas();
+        const blob = await canvasToBlob(canvas);
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "poster.png";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      } catch (e) {
+        // fallback to save page for any browser that blocks downloads
+        const canvas = await captureCanvas();
+        openSavePage(canvas.toDataURL("image/png"));
+      } finally {
+        hideBusy();
+      }
+    }
+
+    // Copy (PC/Android). iOS -> open save page.
+    async function copyPNG(){
+      if (!poster.classList.contains('loaded')) return;
+
+      if (isIOS) return openSavePageFromCapture();
+
+      showBusy("Copying image…", "If copy is blocked, we’ll open a save page.");
+      try{
+        const canvas = await captureCanvas();
+        const blob = await canvasToBlob(canvas);
+
+        if (navigator.clipboard && window.ClipboardItem) {
+          try{
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+            alert("Copied as PNG. Paste into apps that support image paste.");
+            return;
+          } catch {}
+        }
+
+        // fallback: open save page
+        openSavePage(canvas.toDataURL("image/png"));
+      } finally {
+        hideBusy();
+      }
+    }
+
+    // Explicit save page button (works everywhere)
+    openPageBtn.addEventListener('click', openSavePageFromCapture);
+
+    downloadBtn.addEventListener('click', downloadPNG);
+    copyBtn.addEventListener('click', copyPNG);
 
     // Init
     poster.classList.add('retryHidden');
