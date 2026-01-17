@@ -4,210 +4,119 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Affirmation Poster</title>
+
   <style>
     :root{
-      --bg: #0b0c10;
-      --panel: rgba(255,255,255,.06);
-      --panel2: rgba(255,255,255,.10);
-      --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.65);
-      --border: rgba(255,255,255,.14);
-      --shadow: 0 10px 30px rgba(0,0,0,.55);
-      --radius: 18px;
+      --bg:#0b0c10;
+      --panel:rgba(255,255,255,.06);
+      --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.65);
+      --border:rgba(255,255,255,.14);
+      --shadow:0 10px 30px rgba(0,0,0,.55);
+      --radius:18px;
     }
 
-    *{ box-sizing: border-box; }
+    *{box-sizing:border-box}
     body{
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: radial-gradient(1000px 700px at 30% 20%, #182033 0%, var(--bg) 55%);
-      color: var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      margin:0;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      background:radial-gradient(1000px 700px at 30% 20%,#182033 0%,var(--bg) 55%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
     }
 
-    .wrap{
-      width: min(960px, 92vw);
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-    }
-
+    .wrap{width:min(960px,92vw)}
     .card{
-      background: linear-gradient(180deg, var(--panel), rgba(255,255,255,.03));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
+      background:linear-gradient(180deg,var(--panel),rgba(255,255,255,.03));
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
     }
 
-    /* Poster area */
+    /* Poster */
     .poster{
-      width: 100%;
-      aspect-ratio: 1 / 1; /* square */
-      position: relative;
-      background: rgba(0,0,0,.25);
-      user-select: none;
+      width:100%;
+      aspect-ratio:1/1;
+      position:relative;
+      background:rgba(0,0,0,.25);
+      user-select:none;
+    }
+    @media(max-width:700px){
+      .poster{aspect-ratio:4/5;}
     }
 
-    /* Upload overlay (shown BEFORE image only) */
+    /* Upload overlay */
     .uploadOverlay{
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      padding: 22px;
-      background:
-        radial-gradient(600px 400px at 50% 40%, rgba(255,255,255,.06), transparent 60%),
-        linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.35));
-      transition: opacity .25s ease, transform .25s ease;
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      padding:22px;
+      background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.35));
+      transition:.3s;
     }
-
     .dropzone{
-      width: min(520px, 92%);
-      border: 1px dashed rgba(255,255,255,.25);
-      border-radius: 16px;
-      padding: 22px;
-      text-align: center;
-      background: rgba(255,255,255,.04);
+      width:min(520px,92%);
+      border:1px dashed rgba(255,255,255,.25);
+      border-radius:16px;
+      padding:22px;
+      text-align:center;
+      background:rgba(255,255,255,.04);
     }
-    .dropzone h2{
-      margin: 0 0 8px;
-      font-weight: 650;
-      letter-spacing: .2px;
-      font-size: 18px;
-    }
-    .dropzone p{
-      margin: 0 0 14px;
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.35;
-    }
+    .dropzone h2{margin:0 0 8px;font-size:18px}
+    .dropzone p{margin:0 0 14px;color:var(--muted);font-size:14px}
 
-    .btnRow{
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
     button{
-      appearance: none;
-      border: 1px solid rgba(255,255,255,.16);
-      background: rgba(255,255,255,.08);
-      color: var(--text);
-      padding: 10px 12px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 600;
-      letter-spacing: .2px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      padding:10px 14px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
     }
-    button:hover{ background: rgba(255,255,255,.11); }
-    button:active{ transform: translateY(1px); }
 
     /* Image stage */
     .stage{
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-      display: grid;
-      place-items: center;
+      position:absolute;
+      inset:0;
+      overflow:hidden;
     }
     .stage img{
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform-origin: center;
-      will-change: transform;
-      max-width: none; /* we control scaling ourselves */
-      -webkit-user-drag: none;
-      pointer-events: none; /* so drag works on stage */
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform-origin:center;
+      max-width:none;
+      pointer-events:none;
     }
 
-    /* Affirmation text — hidden until image loaded */
+    /* Affirmation */
     .affirmation{
-      position: absolute;
-      inset: auto 16px 18px 16px;
-      text-align: center;
-      padding: 14px 16px;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      text-transform: none;
-      letter-spacing: .2px;
-
-      opacity: 0;
-      transform: translateY(10px);
-      transition: opacity .35s ease, transform .35s ease;
+      position:absolute;
+      inset:auto 16px 18px;
+      padding:14px 16px;
+      text-align:center;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(0,0,0,.35);
+      backdrop-filter:blur(8px);
+      opacity:0;
+      transform:translateY(10px);
+      transition:.4s;
     }
     .affirmation .main{
-      font-size: clamp(18px, 2.2vw, 26px);
-      font-weight: 750;
-      margin: 0;
-      line-height: 1.15;
-    }
-    .affirmation .sub{
-      margin: 6px 0 0;
-      color: rgba(255,255,255,.72);
-      font-size: 13px;
+      font-size:clamp(18px,2.2vw,26px);
+      font-weight:750;
+      margin:0;
     }
 
-    /* Controls (optional) */
-    .controls{
-      display: none; /* only show after load */
-      padding: 14px 14px 12px;
-    }
-    .controlsInner{
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      align-items: center;
-    }
-    .ctrl{
-      background: rgba(255,255,255,.04);
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 14px;
-      padding: 12px;
-    }
-    .ctrl label{
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-    input[type="range"]{
-      width: 100%;
-    }
-
-    .hint{
-      padding: 0 14px 14px;
-      color: rgba(255,255,255,.58);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
-    /* States */
-    .loaded .uploadOverlay{
-      opacity: 0;
-      pointer-events: none;
-      transform: scale(.98);
-    }
-    .loaded .affirmation{
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .loaded .controls{
-      display: block;
-    }
-
-    /* Small screens */
-    @media (max-width: 700px){
-      .controlsInner{ grid-template-columns: 1fr; }
-    }
+    /* Loaded state */
+    .loaded .uploadOverlay{opacity:0;pointer-events:none}
+    .loaded .affirmation{opacity:1;transform:none}
   </style>
 </head>
 
@@ -215,224 +124,75 @@
   <div class="wrap">
     <div id="card" class="card">
       <div id="poster" class="poster">
-        <div class="stage" id="stage" aria-label="Poster image stage">
-          <img id="photo" alt="" />
+
+        <div class="stage">
+          <img id="photo" />
         </div>
 
-        <div class="affirmation" id="affirmation">
-          <p class="main" id="affirmText">This person is loved and appreciated.</p>
-          <p class="sub">You are doing better than you think.</p>
+        <div class="affirmation">
+          <p class="main">This person is loved and appreciated.</p>
         </div>
 
-        <div class="uploadOverlay" id="uploadOverlay">
+        <div class="uploadOverlay">
           <div class="dropzone" id="dropzone">
             <h2>Add your photo</h2>
-            <p>Drag & drop an image here, or choose a file.<br/>Nothing appears until your photo is loaded.</p>
-            <div class="btnRow">
-              <button type="button" id="chooseBtn">Choose image</button>
-              <button type="button" id="demoBtn">Use a demo gradient</button>
-            </div>
-            <input id="file" type="file" accept="image/*" hidden />
+            <p>Nothing appears until your image is loaded.</p>
+            <button id="chooseBtn">Choose image</button>
+            <input id="file" type="file" accept="image/*" hidden>
           </div>
         </div>
-      </div>
 
-      <div class="controls" id="controls">
-        <div class="controlsInner">
-          <div class="ctrl">
-            <label>
-              <span>Zoom</span>
-              <span id="zoomLabel">100%</span>
-            </label>
-            <input id="zoom" type="range" min="50" max="220" value="100" />
-          </div>
-
-          <div class="ctrl">
-            <label>
-              <span>Affirmation</span>
-              <span></span>
-            </label>
-            <div class="btnRow" style="justify-content:flex-start;">
-              <button type="button" id="shuffleText">Shuffle</button>
-              <button type="button" id="resetPos">Reset position</button>
-            </div>
-          </div>
-        </div>
-        <div class="hint">
-          Drag the image to reposition. Use mousewheel on the poster to zoom (desktop).<br/>
-          Tip: take a screenshot, or use your browser’s “Print” to save a PDF.
-        </div>
       </div>
     </div>
   </div>
 
-  <script>
-    const card = document.getElementById('card');
-    const poster = document.getElementById('poster');
-    const stage = document.getElementById('stage');
-    const photo = document.getElementById('photo');
+<script>
+  const card = document.getElementById('card');
+  const photo = document.getElementById('photo');
+  const file = document.getElementById('file');
+  const chooseBtn = document.getElementById('chooseBtn');
+  const dropzone = document.getElementById('dropzone');
 
-    const file = document.getElementById('file');
-    const chooseBtn = document.getElementById('chooseBtn');
-    const demoBtn = document.getElementById('demoBtn');
-    const dropzone = document.getElementById('dropzone');
+  let scale = 1, x = 0, y = 0;
+  let dragging = false, lx = 0, ly = 0;
 
-    const zoom = document.getElementById('zoom');
-    const zoomLabel = document.getElementById('zoomLabel');
+  function apply(){
+    photo.style.transform =
+      `translate(-50%,-50%) translate(${x}px,${y}px) scale(${scale})`;
+  }
 
-    const affirmText = document.getElementById('affirmText');
-    const shuffleText = document.getElementById('shuffleText');
-    const resetPos = document.getElementById('resetPos');
-
-    // State for transform
-    let scale = 1;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    // Drag state
-    let dragging = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    const affirmations = [
-      "This person is loved and appreciated.",
-      "This person matters more than they realise.",
-      "This person is stronger than the hard days.",
-      "This person deserves kindness — especially from themselves.",
-      "This person is worthy, exactly as they are.",
-      "This person belongs, and they are enough.",
-      "This person is doing their best — and it counts.",
-      "This person’s presence makes a difference."
-    ];
-
-    function applyTransform(){
-      // Center + apply offsets and scale
-      const s = scale;
-      photo.style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${s})`;
-    }
-
-    function setScaleFromPercent(pct){
-      scale = Math.max(0.5, Math.min(2.2, pct / 100));
-      zoomLabel.textContent = `${Math.round(scale * 100)}%`;
-      applyTransform();
-    }
-
-    function markLoaded(){
+  function loadImage(f){
+    if(!f) return;
+    const url = URL.createObjectURL(f);
+    photo.onload = () => {
       card.classList.add('loaded');
-      // Only show affirmation AFTER an image has been set
-      // (We already hide it via CSS until .loaded is present)
-    }
+      apply();
+      URL.revokeObjectURL(url);
+    };
+    photo.src = url;
+  }
 
-    function loadFile(f){
-      if(!f) return;
-      const url = URL.createObjectURL(f);
-      photo.onload = () => {
-        // Set a sensible starting scale based on poster size
-        resetView();
-        markLoaded();
-        URL.revokeObjectURL(url);
-      };
-      photo.src = url;
-      photo.alt = "User photo";
-    }
+  chooseBtn.onclick = () => file.click();
+  file.onchange = e => loadImage(e.target.files[0]);
 
-    function resetView(){
-      // Start centered, scale 1, no offset
-      offsetX = 0;
-      offsetY = 0;
-      zoom.value = 100;
-      setScaleFromPercent(100);
-    }
+  dropzone.ondragover = e => e.preventDefault();
+  dropzone.ondrop = e => {
+    e.preventDefault();
+    loadImage(e.dataTransfer.files[0]);
+  };
 
-    chooseBtn.addEventListener('click', () => file.click());
-    file.addEventListener('change', (e) => loadFile(e.target.files[0]));
+  document.getElementById('poster').onpointerdown = e => {
+    dragging = true; lx = e.clientX; ly = e.clientY;
+  };
+  document.onpointermove = e => {
+    if(!dragging) return;
+    x += e.clientX - lx;
+    y += e.clientY - ly;
+    lx = e.clientX; ly = e.clientY;
+    apply();
+  };
+  document.onpointerup = () => dragging = false;
+</script>
 
-    // Demo (no personal photo)
-    demoBtn.addEventListener('click', () => {
-      // Create a simple SVG gradient as a stand-in
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200">
-          <defs>
-            <radialGradient id="g" cx="30%" cy="25%" r="80%">
-              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
-              <stop offset="60%" stop-color="#4d8cff" stop-opacity="0.10"/>
-              <stop offset="100%" stop-color="#000000" stop-opacity="0.25"/>
-            </radialGradient>
-          </defs>
-          <rect width="1200" height="1200" fill="#121525"/>
-          <rect width="1200" height="1200" fill="url(#g)"/>
-        </svg>`;
-      const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-      photo.onload = () => { resetView(); markLoaded(); };
-      photo.src = url;
-      photo.alt = "Demo background";
-    });
-
-    // Drag & drop support
-    ['dragenter','dragover'].forEach(evt => {
-      dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.style.background = 'rgba(255,255,255,.06)'; });
-    });
-    ['dragleave','drop'].forEach(evt => {
-      dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.style.background = 'rgba(255,255,255,.04)'; });
-    });
-    dropzone.addEventListener('drop', (e) => {
-      const f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) loadFile(f);
-    });
-
-    // Drag reposition (on poster)
-    function pointerDown(e){
-      if(!card.classList.contains('loaded')) return;
-      dragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      poster.setPointerCapture?.(e.pointerId);
-    }
-    function pointerMove(e){
-      if(!dragging) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      offsetX += dx;
-      offsetY += dy;
-      applyTransform();
-    }
-    function pointerUp(e){
-      dragging = false;
-      poster.releasePointerCapture?.(e.pointerId);
-    }
-
-    poster.addEventListener('pointerdown', pointerDown);
-    poster.addEventListener('pointermove', pointerMove);
-    poster.addEventListener('pointerup', pointerUp);
-    poster.addEventListener('pointercancel', pointerUp);
-
-    // Zoom slider
-    zoom.addEventListener('input', () => setScaleFromPercent(Number(zoom.value)));
-
-    // Mouse wheel zoom (desktop)
-    poster.addEventListener('wheel', (e) => {
-      if(!card.classList.contains('loaded')) return;
-      e.preventDefault();
-      const delta = Math.sign(e.deltaY);
-      const current = Number(zoom.value);
-      const next = Math.max(50, Math.min(220, current + (delta > 0 ? -6 : 6)));
-      zoom.value = next;
-      setScaleFromPercent(next);
-    }, { passive: false });
-
-    // Affirmation shuffle
-    shuffleText.addEventListener('click', () => {
-      const pick = affirmations[Math.floor(Math.random() * affirmations.length)];
-      affirmText.textContent = pick;
-    });
-
-    resetPos.addEventListener('click', resetView);
-
-    // Initial label
-    setScaleFromPercent(100);
-    applyTransform();
-  </script>
 </body>
 </html>
