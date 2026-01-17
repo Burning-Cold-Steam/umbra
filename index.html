@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Affirmation Poster</title>
+  <title>Poster</title>
 
   <style>
     :root{
@@ -43,6 +43,7 @@
       position:relative;
       background:rgba(0,0,0,.25);
       user-select:none;
+      touch-action:none; /* helps on mobile dragging */
     }
     @media(max-width:700px){
       .poster{aspect-ratio:4/5;}
@@ -56,7 +57,7 @@
       place-items:center;
       padding:22px;
       background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.35));
-      transition:.3s;
+      transition:opacity .25s ease, transform .25s ease;
     }
     .dropzone{
       width:min(520px,92%);
@@ -66,8 +67,15 @@
       text-align:center;
       background:rgba(255,255,255,.04);
     }
-    .dropzone h2{margin:0 0 8px;font-size:18px}
-    .dropzone p{margin:0 0 14px;color:var(--muted);font-size:14px}
+    .dropzone h2{margin:0 0 8px;font-size:18px;font-weight:700}
+    .dropzone p{margin:0 0 14px;color:var(--muted);font-size:14px;line-height:1.35}
+
+    .btnRow{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
 
     button{
       border:1px solid rgba(255,255,255,.16);
@@ -76,10 +84,18 @@
       padding:10px 14px;
       border-radius:12px;
       cursor:pointer;
-      font-weight:600;
+      font-weight:650;
+      letter-spacing:.2px;
+    }
+    button:hover{background:rgba(255,255,255,.11)}
+    button:active{transform:translateY(1px)}
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none;
     }
 
-    /* Image stage */
+    /* Stage */
     .stage{
       position:absolute;
       inset:0;
@@ -92,107 +108,274 @@
       transform-origin:center;
       max-width:none;
       pointer-events:none;
+      -webkit-user-drag:none;
     }
 
-    /* Affirmation */
+    /* Affirmation - hidden until loaded */
     .affirmation{
       position:absolute;
-      inset:auto 16px 18px;
+      left:16px;
+      right:16px;
+      bottom:18px;
       padding:14px 16px;
       text-align:center;
       border-radius:16px;
       border:1px solid rgba(255,255,255,.18);
       background:rgba(0,0,0,.35);
       backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+
       opacity:0;
       transform:translateY(10px);
-      transition:.4s;
+      transition:opacity .55s ease, transform .55s ease;
+      transition-delay: 0s; /* we set a delay after load */
     }
     .affirmation .main{
       font-size:clamp(18px,2.2vw,26px);
-      font-weight:750;
+      font-weight:780;
       margin:0;
+      line-height:1.15;
+    }
+    .affirmation .sub{
+      margin:6px 0 0;
+      color:rgba(255,255,255,.70);
+      font-size:13px;
+      line-height:1.25;
+    }
+
+    /* Controls: only show when loaded */
+    .controls{
+      position:absolute;
+      top:14px;
+      left:14px;
+      right:14px;
+      display:none;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      z-index:5;
     }
 
     /* Loaded state */
-    .loaded .uploadOverlay{opacity:0;pointer-events:none}
-    .loaded .affirmation{opacity:1;transform:none}
+    .loaded .uploadOverlay{
+      opacity:0;
+      pointer-events:none;
+      transform:scale(.985);
+    }
+    .loaded .controls{display:flex;}
+    .loaded .affirmation{
+      opacity:1;
+      transform:none;
+    }
+
+    /* Small hint for drag */
+    .dragHint{
+      position:absolute;
+      top:14px;
+      left:14px;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(0,0,0,.28);
+      color:rgba(255,255,255,.72);
+      font-size:12px;
+      display:none;
+      z-index:5;
+    }
+    .loaded .dragHint{display:block;}
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <div id="card" class="card">
+    <div class="card">
+      <!-- Capture ONLY this poster area for PNG/PDF -->
       <div id="poster" class="poster">
-
         <div class="stage">
-          <img id="photo" />
+          <img id="photo" alt="" />
         </div>
 
-        <div class="affirmation">
-          <p class="main">This person is loved and appreciated.</p>
+        <div class="controls">
+          <button type="button" id="savePng" disabled>Save PNG</button>
+          <button type="button" id="savePdf" disabled>Save PDF</button>
+        </div>
+
+        <div class="dragHint">Drag to reposition</div>
+
+        <div class="affirmation" id="affirmBox" aria-live="polite">
+          <p class="main" id="affirmMain"></p>
+          <p class="sub" id="affirmSub"></p>
         </div>
 
         <div class="uploadOverlay">
           <div class="dropzone" id="dropzone">
             <h2>Add your photo</h2>
-            <p>Nothing appears until your image is loaded.</p>
-            <button id="chooseBtn">Choose image</button>
+            <p>Choose or drop an image. The message appears only after the photo loads.</p>
+            <div class="btnRow">
+              <button type="button" id="chooseBtn">Choose image</button>
+            </div>
             <input id="file" type="file" accept="image/*" hidden>
           </div>
         </div>
-
       </div>
     </div>
   </div>
 
-<script>
-  const card = document.getElementById('card');
-  const photo = document.getElementById('photo');
-  const file = document.getElementById('file');
-  const chooseBtn = document.getElementById('chooseBtn');
-  const dropzone = document.getElementById('dropzone');
+  <!-- Libraries for saving -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
-  let scale = 1, x = 0, y = 0;
-  let dragging = false, lx = 0, ly = 0;
+  <script>
+    const poster = document.getElementById('poster');
+    const photo = document.getElementById('photo');
+    const file = document.getElementById('file');
+    const chooseBtn = document.getElementById('chooseBtn');
+    const dropzone = document.getElementById('dropzone');
 
-  function apply(){
-    photo.style.transform =
-      `translate(-50%,-50%) translate(${x}px,${y}px) scale(${scale})`;
-  }
+    const affirmBox = document.getElementById('affirmBox');
+    const affirmMain = document.getElementById('affirmMain');
+    const affirmSub  = document.getElementById('affirmSub');
 
-  function loadImage(f){
-    if(!f) return;
-    const url = URL.createObjectURL(f);
-    photo.onload = () => {
-      card.classList.add('loaded');
+    const savePngBtn = document.getElementById('savePng');
+    const savePdfBtn = document.getElementById('savePdf');
+
+    // Rotate per reload: random pick on each page load (and we set on photo load too)
+    const AFFIRMATIONS = [
+      { main: "This person is loved and appreciated.", sub: "You’re doing better than you think." },
+      { main: "This person matters more than they realise.", sub: "Your presence changes rooms." },
+      { main: "This person is worthy, exactly as they are.", sub: "No performance required." },
+      { main: "This person deserves gentleness.", sub: "Especially from themselves." },
+      { main: "This person is stronger than the hard days.", sub: "Keep going. Quietly. Steadily." },
+      { main: "This person belongs.", sub: "There is space for you here." },
+      { main: "This person is enough.", sub: "Right now. As-is." },
+      { main: "This person is seen.", sub: "Even when they feel invisible." }
+    ];
+
+    function pickAffirmation(){
+      const pick = AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)];
+      affirmMain.textContent = pick.main;
+      affirmSub.textContent  = pick.sub;
+    }
+
+    // Image transform state (drag reposition)
+    let scale = 1, x = 0, y = 0;
+    let dragging = false, lx = 0, ly = 0;
+
+    function apply(){
+      photo.style.transform = `translate(-50%,-50%) translate(${x}px,${y}px) scale(${scale})`;
+    }
+
+    function resetTransform(){
+      scale = 1; x = 0; y = 0;
       apply();
-      URL.revokeObjectURL(url);
+    }
+
+    function markLoaded(){
+      poster.classList.add('loaded');
+
+      // Gentle emotional beat: delay the affirmation fade-in slightly
+      affirmBox.style.transitionDelay = "450ms";
+
+      savePngBtn.disabled = false;
+      savePdfBtn.disabled = false;
+    }
+
+    function loadImage(f){
+      if(!f) return;
+      pickAffirmation();
+
+      const url = URL.createObjectURL(f);
+      photo.onload = () => {
+        photo.alt = "User photo";
+        resetTransform();
+        markLoaded();
+        URL.revokeObjectURL(url);
+      };
+      photo.src = url;
+    }
+
+    chooseBtn.onclick = () => file.click();
+    file.onchange = e => loadImage(e.target.files[0]);
+
+    // Drag/drop upload
+    dropzone.ondragover = e => e.preventDefault();
+    dropzone.ondrop = e => {
+      e.preventDefault();
+      loadImage(e.dataTransfer.files[0]);
     };
-    photo.src = url;
-  }
 
-  chooseBtn.onclick = () => file.click();
-  file.onchange = e => loadImage(e.target.files[0]);
+    // Drag reposition (pointer events)
+    poster.addEventListener('pointerdown', (e) => {
+      if(!poster.classList.contains('loaded')) return;
+      dragging = true;
+      lx = e.clientX;
+      ly = e.clientY;
+      poster.setPointerCapture?.(e.pointerId);
+    });
 
-  dropzone.ondragover = e => e.preventDefault();
-  dropzone.ondrop = e => {
-    e.preventDefault();
-    loadImage(e.dataTransfer.files[0]);
-  };
+    poster.addEventListener('pointermove', (e) => {
+      if(!dragging) return;
+      x += e.clientX - lx;
+      y += e.clientY - ly;
+      lx = e.clientX;
+      ly = e.clientY;
+      apply();
+    });
 
-  document.getElementById('poster').onpointerdown = e => {
-    dragging = true; lx = e.clientX; ly = e.clientY;
-  };
-  document.onpointermove = e => {
-    if(!dragging) return;
-    x += e.clientX - lx;
-    y += e.clientY - ly;
-    lx = e.clientX; ly = e.clientY;
-    apply();
-  };
-  document.onpointerup = () => dragging = false;
-</script>
+    poster.addEventListener('pointerup', (e) => {
+      dragging = false;
+      poster.releasePointerCapture?.(e.pointerId);
+    });
+    poster.addEventListener('pointercancel', () => dragging = false);
 
+    // Save PNG
+    async function savePNG(){
+      // capture at higher resolution for quality
+      const canvas = await html2canvas(poster, {
+        scale: 2,
+        backgroundColor: null,
+        useCORS: true
+      });
+
+      canvas.toBlob((blob) => {
+        if(!blob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "poster.png";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      }, "image/png");
+    }
+
+    // Save PDF (poster image placed into a single-page PDF)
+    async function savePDF(){
+      const canvas = await html2canvas(poster, {
+        scale: 2,
+        backgroundColor: "#0b0c10",
+        useCORS: true
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const { jsPDF } = window.jspdf;
+
+      // Create PDF with the same aspect ratio as the poster
+      const pdf = new jsPDF({
+        orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
+        unit: "pt",
+        format: [canvas.width, canvas.height]
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save("poster.pdf");
+    }
+
+    savePngBtn.addEventListener('click', savePNG);
+    savePdfBtn.addEventListener('click', savePDF);
+
+    // Rotate per reload even before upload (doesn't show until loaded, but ready)
+    pickAffirmation();
+  </script>
 </body>
 </html>
