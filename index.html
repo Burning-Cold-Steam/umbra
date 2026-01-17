@@ -29,7 +29,7 @@
       color:var(--text);
       font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     }
-    .wrap{width:min(960px,92vw)}
+    .wrap{width:min(960px,94vw)}
     .card{
       background:linear-gradient(180deg,var(--panel),rgba(255,255,255,.03));
       border:1px solid var(--border);
@@ -38,26 +38,32 @@
       overflow:hidden;
     }
 
-    /* ✅ Portrait by default (4:5). Also keep it from exceeding the viewport height. */
+    /* Desktop: 4:5 feed friendly */
     .poster{
-      width:100%;
+      width:min(720px, 94vw);
       aspect-ratio:4/5;
-      max-height:86vh;
       position:relative;
       background:rgba(0,0,0,.25);
       user-select:none;
       touch-action:none;
       overflow:hidden;
     }
-    /* Optional: on very large desktops you can go slightly less tall if you want
-       @media (min-width: 1100px){ .poster{aspect-ratio:3/4;} }
-    */
 
-    /* Social-ish vignette + soft grade */
+    /* Mobile: 9:16 story (tall) + allow it to occupy most of the screen */
+    @media(max-width:700px){
+      .poster{
+        width:min(96vw, 520px);
+        aspect-ratio:9/16;
+        /* keeps it feeling tall without clipping on short screens */
+        max-height:92vh;
+      }
+    }
+
+    /* Social-ish vignette + grade */
     .grade{
       position:absolute; inset:0; pointer-events:none; z-index:3;
       background:
-        radial-gradient(120% 110% at 50% 45%, rgba(0,0,0,0.00) 45%, rgba(0,0,0,0.35) 100%),
+        radial-gradient(120% 110% at 50% 45%, rgba(0,0,0,0.00) 45%, rgba(0,0,0,0.38) 100%),
         linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.12));
     }
     .grain{
@@ -117,16 +123,19 @@
       display:none; gap:10px; justify-content:flex-end; flex-wrap:wrap;
       z-index:20;
     }
+
     .dragHint{
       position:absolute; top:14px; left:14px;
       padding:8px 10px; border-radius:12px;
       border:1px solid rgba(255,255,255,.14);
       background:rgba(0,0,0,.28);
-      color:rgba(255,255,255,.75);
+      color:rgba(255,255,255,.78);
       font-size:12px;
-      display:none;
       z-index:20;
+      opacity:1;
+      transition: opacity .35s ease;
     }
+    .hintHidden .dragHint{opacity:0; pointer-events:none;}
 
     .affirmation{
       position:absolute; left:16px; right:16px; bottom:18px;
@@ -145,7 +154,7 @@
     }
     .affirmation .main{
       font-family:"Playfair Display", serif;
-      font-size:clamp(24px,2.8vw,36px);
+      font-size:clamp(26px,3.1vw,38px);
       font-weight:800;
       margin:0;
       line-height:1.12;
@@ -160,7 +169,6 @@
 
     .loaded .uploadOverlay{opacity:0;pointer-events:none;transform:scale(.985)}
     .loaded .controls{display:flex}
-    .loaded .dragHint{display:block}
     .reveal .affirmation{opacity:1;transform:none}
   </style>
 </head>
@@ -177,12 +185,13 @@
         <div class="grain"></div>
 
         <div class="controls">
-          <button type="button" id="savePng" disabled>Save PNG</button>
-          <button type="button" id="savePdf" disabled>Save PDF</button>
+          <button type="button" id="downloadPng" disabled>Download PNG</button>
+          <button type="button" id="copyPng" disabled>Copy PNG</button>
         </div>
-        <div class="dragHint">Drag to reposition • Scroll/pinch to zoom</div>
 
-        <div class="affirmation" id="affirmBox" aria-live="polite">
+        <div class="dragHint" id="dragHint">Drag to reposition • Scroll/pinch to zoom</div>
+
+        <div class="affirmation" aria-live="polite">
           <p class="main" id="affirmMain"></p>
           <p class="sub" id="affirmSub"></p>
         </div>
@@ -202,7 +211,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
   <script>
     const poster = document.getElementById('poster');
@@ -214,8 +222,8 @@
     const affirmMain = document.getElementById('affirmMain');
     const affirmSub  = document.getElementById('affirmSub');
 
-    const savePngBtn = document.getElementById('savePng');
-    const savePdfBtn = document.getElementById('savePdf');
+    const downloadBtn = document.getElementById('downloadPng');
+    const copyBtn = document.getElementById('copyPng');
 
     const AFFIRMATIONS = [
       { main: "This person is loved and appreciated.", sub: "You’re doing better than you think." },
@@ -235,28 +243,19 @@
 
     // Transform state
     let scale = 1, x = 0, y = 0;
-
-    // We compute a sensible base scale on load (contain), then allow zooming out below it.
-    let baseScale = 1;
-    let minScale = 0.2;     // will become baseScale * 0.35
-    let maxScale = 3.0;
+    let baseScale = 1, minScale = 0.2, maxScale = 3.0;
 
     function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
-
     function apply(){
       photo.style.transform = `translate(-50%,-50%) translate(${x}px,${y}px) scale(${scale})`;
     }
 
     function computeContainScale(){
-      // Fit entire photo inside poster (no cropping), good starting point.
       const pw = poster.clientWidth;
       const ph = poster.clientHeight;
       const iw = photo.naturalWidth || 1;
       const ih = photo.naturalHeight || 1;
-
-      const contain = Math.min(pw / iw, ph / ih);
-      // tiny padding so it doesn't touch edges immediately
-      return contain * 0.98;
+      return Math.min(pw / iw, ph / ih) * 0.98;
     }
 
     function resetToContain(){
@@ -264,40 +263,49 @@
       baseScale = computeContainScale();
       scale = baseScale;
 
-      // ✅ allow zooming out BELOW "contain" to create blank margins
-      minScale = baseScale * 0.35;   // plenty of margin space
+      // allow zoom-out to create margins
+      minScale = baseScale * 0.35;
       maxScale = Math.max(3.0, baseScale * 6);
-
       apply();
     }
 
-    // Reveal control (6s)
+    // Timers: affirmation reveal (6s), hint hide (5s)
     let revealTimer = null;
-    function scheduleReveal(){
+    let hintTimer = null;
+
+    function scheduleRevealAndHintHide(){
       poster.classList.remove('reveal');
+      poster.classList.remove('hintHidden');
+
       if (revealTimer) clearTimeout(revealTimer);
+      if (hintTimer) clearTimeout(hintTimer);
+
       revealTimer = setTimeout(() => poster.classList.add('reveal'), 6000);
+      hintTimer = setTimeout(() => poster.classList.add('hintHidden'), 5000);
     }
 
     function markLoaded(){
       poster.classList.add('loaded');
-      savePngBtn.disabled = false;
-      savePdfBtn.disabled = false;
-      scheduleReveal();
+      downloadBtn.disabled = false;
+      copyBtn.disabled = false;
+      scheduleRevealAndHintHide();
     }
 
-    function loadImage(f){
-      if(!f) return;
+    // ✅ Use FileReader to produce a data URL (more reliable for html2canvas + clipboard)
+    function loadImage(fileObj){
+      if(!fileObj) return;
       pickAffirmation();
 
-      const url = URL.createObjectURL(f);
-      photo.onload = () => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        photo.onload = () => {
+          resetToContain();
+          markLoaded();
+        };
+        photo.src = reader.result; // data URL
         photo.alt = "User photo";
-        resetToContain();   // ✅ no longer starts overly zoomed
-        markLoaded();
-        URL.revokeObjectURL(url);
       };
-      photo.src = url;
+      reader.readAsDataURL(fileObj);
     }
 
     chooseBtn.onclick = () => file.click();
@@ -341,7 +349,6 @@
       } else if (pointers.size === 2){
         const [p1, p2] = Array.from(pointers.values());
         const dist = getDist(p1, p2);
-
         if (lastPinchDist){
           const ratio = dist / lastPinchDist;
           scale = clamp(scale * ratio, minScale, maxScale);
@@ -369,7 +376,7 @@
       apply();
     }, { passive: false });
 
-    // ----- Save PNG / PDF -----
+    // ----- Capture helper -----
     async function captureCanvas(){
       return await html2canvas(poster, {
         scale: 2,
@@ -378,45 +385,65 @@
       });
     }
 
-    async function savePNG(){
+    // Download PNG (desktop/Android). If iOS blocks it, open in new tab for long-press save.
+    async function downloadPNG(){
       const canvas = await captureCanvas();
-      canvas.toBlob((blob) => {
-        if(!blob) return;
+      const dataUrl = canvas.toDataURL("image/png");
+
+      // Try download via anchor (works in most desktop browsers)
+      try{
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
+        a.href = dataUrl;
         a.download = "poster.png";
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-      }, "image/png");
+      }catch{
+        // Fallback
+        window.open(dataUrl, "_blank");
+      }
+
+      // Extra iOS-friendly fallback: open image if download didn’t trigger
+      // (Safari often ignores a.download)
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent)){
+        window.open(dataUrl, "_blank");
+      }
     }
 
-    async function savePDF(){
+    // Copy PNG to clipboard (where supported). Fallback: open image in new tab.
+    async function copyPNG(){
       const canvas = await captureCanvas();
-      const imgData = canvas.toDataURL("image/png");
-      const { jsPDF } = window.jspdf;
 
-      const pdf = new jsPDF({
-        orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
-        unit: "pt",
-        format: [canvas.width, canvas.height]
+      // ClipboardItem supported?
+      if (!navigator.clipboard || !window.ClipboardItem){
+        const dataUrl = canvas.toDataURL("image/png");
+        window.open(dataUrl, "_blank");
+        alert("Clipboard copy isn’t supported here. I opened the image — long-press to save/share.");
+        return;
+      }
+
+      return new Promise((resolve) => {
+        canvas.toBlob(async (blob) => {
+          try{
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+            alert("Copied as PNG. You can paste it into messages/social apps that support image paste.");
+            resolve();
+          }catch(err){
+            const dataUrl = canvas.toDataURL("image/png");
+            window.open(dataUrl, "_blank");
+            alert("Copy blocked by browser permissions. I opened the image — long-press to save/share.");
+            resolve();
+          }
+        }, "image/png");
       });
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-      pdf.save("poster.pdf");
     }
 
-    savePngBtn.addEventListener('click', savePNG);
-    savePdfBtn.addEventListener('click', savePDF);
+    downloadBtn.addEventListener('click', downloadPNG);
+    copyBtn.addEventListener('click', copyPNG);
 
-    // prep affirmation (still hidden)
-    pickAffirmation();
-    apply();
-
-    // If device rotates / resizes, keep the same “contain” feel without jumping too much:
+    // Resize/orientation changes: keep relative zoom level
     window.addEventListener('resize', () => {
       if (!poster.classList.contains('loaded')) return;
-      // Recompute base scale, but preserve user's relative zoom level from base
       const prevBase = baseScale || 1;
       const rel = scale / prevBase;
 
@@ -427,6 +454,9 @@
       scale = clamp(baseScale * rel, minScale, maxScale);
       apply();
     });
+
+    pickAffirmation();
+    apply();
   </script>
 </body>
 </html>
