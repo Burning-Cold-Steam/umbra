@@ -226,15 +226,38 @@
     const copyBtn = document.getElementById('copyPng');
 
     const AFFIRMATIONS = [
-      { main: "This person is loved and appreciated.", sub: "You’re doing better than you think." },
-      { main: "This person matters more than they realise.", sub: "Your presence changes rooms." },
-      { main: "This person is worthy, exactly as they are.", sub: "No performance required." },
-      { main: "This person deserves gentleness.", sub: "Especially from themselves." },
-      { main: "This person is stronger than the hard days.", sub: "Keep going. Quietly. Steadily." },
-      { main: "This person belongs.", sub: "There is space for you here." },
-      { main: "This person is enough.", sub: "Right now. As-is." },
-      { main: "This person is seen.", sub: "Even when they feel invisible." }
-    ];
+  { main: "This person is loved and appreciated.", sub: "You’re doing better than you think." },
+  { main: "This person matters more than they realise.", sub: "Your presence changes rooms." },
+  { main: "This person is worthy, exactly as they are.", sub: "No performance required." },
+  { main: "This person deserves gentleness.", sub: "Especially from themselves." },
+  { main: "This person is stronger than the hard days.", sub: "Quiet strength still counts." },
+  { main: "This person belongs.", sub: "There is space for you here." },
+  { main: "This person is enough.", sub: "Right now. As-is." },
+  { main: "This person is seen.", sub: "Even when they feel invisible." },
+  { main: "This person’s effort matters.", sub: "Even when no one applauds it." },
+  { main: "This person is allowed to rest.", sub: "Worth is not earned through exhaustion." },
+  { main: "This person carries more courage than they notice.", sub: "Showing up is brave." },
+  { main: "This person is learning, not failing.", sub: "Growth is rarely loud." },
+  { main: "This person’s feelings are valid.", sub: "They don’t need permission to exist." },
+  { main: "This person has survived everything so far.", sub: "That counts for something." },
+  { main: "This person brings value just by being here.", sub: "Nothing else required." },
+  { main: "This person is allowed to take up space.", sub: "Softly or boldly." },
+  { main: "This person is not behind.", sub: "Life isn’t a race." },
+  { main: "This person is doing meaningful work.", sub: "Even when it feels small." },
+  { main: "This person deserves kindness.", sub: "From others — and themselves." },
+  { main: "This person is trusted to find their way.", sub: "They always have." },
+  { main: "This person is allowed to change.", sub: "Growth doesn’t erase who they were." },
+  { main: "This person’s story isn’t finished.", sub: "There’s more ahead." },
+  { main: "This person is not a burden.", sub: "They never were." },
+  { main: "This person brings calm where they go.", sub: "Even without trying." },
+  { main: "This person is more capable than they feel today.", sub: "Feelings are not facts." },
+  { main: "This person deserves to feel proud.", sub: "Even quietly." },
+  { main: "This person is held in good regard.", sub: "More than they know." },
+  { main: "This person’s pace is the right pace.", sub: "There is no deadline on becoming." },
+  { main: "This person is allowed to hope.", sub: "Even cautiously." },
+  { main: "This person is worthy of good things.", sub: "Simply because they exist." }
+];
+
     function pickAffirmation(){
       const pick = AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)];
       affirmMain.textContent = pick.main;
