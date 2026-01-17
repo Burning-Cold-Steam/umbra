@@ -46,7 +46,6 @@
       background:rgba(0,0,0,.25);
       user-select:none;
       overflow:hidden;
-      /* IMPORTANT: keep gestures stable */
       touch-action:none;
     }
     @media(max-width:700px){
@@ -57,7 +56,6 @@
       }
     }
 
-    /* Photo stage */
     .stage{position:absolute; inset:0; overflow:hidden; z-index:1;}
     .stage img{
       position:absolute;
@@ -66,12 +64,9 @@
       max-width:none;
       pointer-events:none;
       -webkit-user-drag:none;
-
-      /* On-trend mild grade */
       filter: contrast(1.07) saturate(1.15) brightness(1.03) sepia(0.06);
     }
 
-    /* Vignette + film */
     .grade{
       position:absolute; inset:0; pointer-events:none; z-index:3;
       background:
@@ -85,7 +80,6 @@
       background-size:180px 180px;
     }
 
-    /* Upload overlay */
     .uploadOverlay{
       position:absolute; inset:0;
       display:grid; place-items:center;
@@ -121,7 +115,6 @@
     button:active{transform:translateY(1px)}
     button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
-    /* Top controls */
     .controls{
       position:absolute; top:14px; left:14px; right:14px;
       display:none;
@@ -131,7 +124,6 @@
       z-index:20;
     }
 
-    /* Hint (auto hides) */
     .hint{
       position:absolute; top:14px; left:14px;
       padding:8px 10px;
@@ -146,7 +138,6 @@
     }
     .hintHidden .hint{opacity:0; pointer-events:none;}
 
-    /* Affirmation (reveals after 6s from first load only) */
     .affirmation{
       position:absolute; left:16px; right:16px; bottom:18px;
       padding:16px 18px;
@@ -202,7 +193,6 @@
           <button type="button" id="downloadPng" disabled>Download PNG</button>
           <button type="button" id="copyPng" disabled>Copy PNG</button>
           <button type="button" id="shareBtn" disabled>Share / Save</button>
-          <button type="button" id="shareBtn" disabled>Share / Save</button>
           <button type="button" id="fitBtn" disabled>Fit</button>
           <button type="button" id="retryBtn" disabled>Retry</button>
         </div>
@@ -244,6 +234,7 @@
 
     const downloadBtn = document.getElementById('downloadPng');
     const copyBtn = document.getElementById('copyPng');
+    const shareBtn = document.getElementById('shareBtn');
     const fitBtn = document.getElementById('fitBtn');
     const retryBtn = document.getElementById('retryBtn');
 
@@ -336,21 +327,17 @@
       x = 0; y = 0;
       baseScale = computeContainScale();
       scale = baseScale;
-      minScale = baseScale * 0.35;               // allow blank margins
-      maxScale = Math.max(3.0, baseScale * 6);   // allow close zoom
+      minScale = baseScale * 0.35;
+      maxScale = Math.max(3.0, baseScale * 6);
       apply();
       resetGestureBaseline();
     }
 
     // -------------------------
     // Timers (ONLY from initial image load)
-    // Retry must NOT restart these.
+    // Retry does NOT restart these.
     // -------------------------
-    let revealTimer = null;
-    let hintTimer = null;
-    let retryTimer = null;
     let timersStarted = false;
-
     function startOneTimeTimers(){
       if (timersStarted) return;
       timersStarted = true;
@@ -359,18 +346,15 @@
       poster.classList.remove('hintHidden');
       poster.classList.add('retryHidden');
 
-      revealTimer = setTimeout(() => poster.classList.add('reveal'), 6000);
-      hintTimer  = setTimeout(() => poster.classList.add('hintHidden'), 5000);
-      retryTimer = setTimeout(() => poster.classList.remove('retryHidden'), 20000);
+      setTimeout(() => poster.classList.add('reveal'), 6000);
+      setTimeout(() => poster.classList.add('hintHidden'), 5000);
+      setTimeout(() => poster.classList.remove('retryHidden'), 20000);
     }
 
     // -------------------------
-    // Upload handling (fixes the broken choose button)
+    // Upload handling
     // -------------------------
-    chooseBtn.addEventListener('click', () => {
-      // Must be direct user gesture → reliable on mobile
-      fileInput.click();
-    });
+    chooseBtn.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0];
@@ -391,32 +375,32 @@
       reader.onload = () => {
         photo.onload = () => {
           poster.classList.add('loaded');
+
           downloadBtn.disabled = false;
           copyBtn.disabled = false;
+          shareBtn.disabled = false;
           fitBtn.disabled = false;
           retryBtn.disabled = false;
 
           fitToScreen();
           startOneTimeTimers();
         };
-        photo.src = reader.result; // data URL (more reliable for capture)
+        photo.src = reader.result;
         photo.alt = "User photo";
       };
       reader.readAsDataURL(fileObj);
     }
 
-    // Fit button (instant recovery)
+    // Fit button
     fitBtn.addEventListener('click', () => {
       if(!poster.classList.contains('loaded')) return;
       fitToScreen();
     });
 
-    // Retry: optional, does NOT restart timers; just swaps text.
+    // Retry: optional; swaps text only
     retryBtn.addEventListener('click', () => {
       if(!poster.classList.contains('loaded')) return;
       pickAffirmation();
-      // If already revealed, it updates immediately.
-      // If not yet revealed, it updates the hidden text, without changing the reveal schedule.
     });
 
     // -------------------------
@@ -425,17 +409,11 @@
     const pointers = new Map();
     let lastPinchDist = null;
 
-    // iOS needs stronger damping + step clamping
     const DRAG_SENS = isIOS ? 0.45 : 1.0;
-
-    // pinch: very calm on iOS
     const PINCH_SENS = isIOS ? 0.18 : 1.0;
     const PINCH_DEADZONE = isIOS ? 0.012 : 0.0;
+    const MAX_SCALE_STEP = isIOS ? 0.020 : 0.06;
 
-    // per-frame clamp (prevents "jump" feeling)
-    const MAX_SCALE_STEP = isIOS ? 0.020 : 0.06; // max +/- per frame
-
-    // rAF batching
     let needsApply = false;
     function scheduleApply(){
       if (needsApply) return;
@@ -458,7 +436,6 @@
     }
 
     poster.addEventListener('pointerdown', (e) => {
-      // Never hijack taps on UI elements
       if (e.target.closest('button') || e.target.closest('input') || e.target.closest('#dropzone')) return;
       if(!poster.classList.contains('loaded')) return;
 
@@ -478,7 +455,6 @@
       const curr = { clientX: e.clientX, clientY: e.clientY };
       pointers.set(e.pointerId, curr);
 
-      // 1 pointer: drag
       if (pointers.size === 1){
         const dx = (curr.clientX - prev.clientX) * DRAG_SENS;
         const dy = (curr.clientY - prev.clientY) * DRAG_SENS;
@@ -487,7 +463,6 @@
         return;
       }
 
-      // 2 pointers: pinch zoom (damped)
       if (pointers.size === 2){
         const [p1, p2] = Array.from(pointers.values());
         const dist = getDist(p1, p2);
@@ -498,14 +473,12 @@
         }
 
         const rawRatio = dist / lastPinchDist;
-        lastPinchDist = dist; // always update baseline (prevents "stuck" reversals)
+        lastPinchDist = dist;
 
         if (Math.abs(rawRatio - 1) < PINCH_DEADZONE) return;
 
-        // Convert ratio to a small intended delta
         const intendedRatio = 1 + ((rawRatio - 1) * PINCH_SENS);
 
-        // Convert ratio into a scale step and clamp it (stability)
         let nextScale = scale * intendedRatio;
         const delta = nextScale - scale;
         const clampedDelta = clamp(delta, -MAX_SCALE_STEP, MAX_SCALE_STEP);
@@ -525,7 +498,6 @@
     poster.addEventListener('pointerup', endPointer);
     poster.addEventListener('pointercancel', endPointer);
 
-    // Desktop wheel zoom
     poster.addEventListener('wheel', (e) => {
       if(!poster.classList.contains('loaded')) return;
       e.preventDefault();
@@ -536,7 +508,7 @@
     }, { passive: false });
 
     // -------------------------
-    // Export / copy
+    // Export / Share (iOS-safe)
     // -------------------------
     async function captureCanvas(){
       return await html2canvas(poster, {
@@ -546,55 +518,88 @@
       });
     }
 
-    async function downloadPNG(){
-      const canvas = await captureCanvas();
-      const dataUrl = canvas.toDataURL("image/png");
+    async function canvasToBlob(canvas){
+      return await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    }
 
-      try{
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = "poster.png";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }catch{
-        window.open(dataUrl, "_blank");
+    function openImageFallback(dataUrl){
+      const w = window.open();
+      if (w) {
+        w.document.write(`<meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>Save Image</title>
+          <style>body{margin:0;background:#000;display:grid;place-items:center;min-height:100vh}img{max-width:100%;height:auto}</style>
+          <img src="${dataUrl}" alt="poster">`);
+        w.document.close();
+      } else {
+        window.location.href = dataUrl;
+      }
+    }
+
+    async function shareOrSavePNG(){
+      const canvas = await captureCanvas();
+      const blob = await canvasToBlob(canvas);
+
+      if (navigator.share) {
+        try{
+          const file = new File([blob], "poster.png", { type: "image/png" });
+          await navigator.share({ files: [file], title: "Poster", text: "" });
+          return;
+        } catch (e) {
+          // user cancelled or share failed -> fallback below
+        }
       }
 
-      // iOS Safari often ignores a.download
-      if (isIOS) window.open(dataUrl, "_blank");
+      const dataUrl = canvas.toDataURL("image/png");
+      openImageFallback(dataUrl);
+    }
+
+    async function downloadPNG(){
+      if (isIOS) return shareOrSavePNG();
+
+      const canvas = await captureCanvas();
+      const blob = await canvasToBlob(canvas);
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "poster.png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
     }
 
     async function copyPNG(){
-      const canvas = await captureCanvas();
+      if (isIOS) return shareOrSavePNG();
 
-      if (!navigator.clipboard || !window.ClipboardItem){
-        const dataUrl = canvas.toDataURL("image/png");
-        window.open(dataUrl, "_blank");
-        alert("Clipboard copy isn’t supported here. I opened the image — long-press to save/share.");
-        return;
+      const canvas = await captureCanvas();
+      const blob = await canvasToBlob(canvas);
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        try{
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          alert("Copied as PNG. Paste into apps that support image paste.");
+          return;
+        } catch (e) {
+          // fallback to download below
+        }
       }
 
-      return new Promise((resolve) => {
-        canvas.toBlob(async (blob) => {
-          try{
-            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-            alert("Copied as PNG. Paste into apps that support image paste.");
-            resolve();
-          }catch{
-            const dataUrl = canvas.toDataURL("image/png");
-            window.open(dataUrl, "_blank");
-            alert("Copy blocked by browser permissions. I opened the image — long-press to save/share.");
-            resolve();
-          }
-        }, "image/png");
-      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "poster.png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
     }
 
     downloadBtn.addEventListener('click', downloadPNG);
     copyBtn.addEventListener('click', copyPNG);
+    shareBtn.addEventListener('click', shareOrSavePNG);
 
-    // Maintain relative zoom on resize/orientation
     window.addEventListener('resize', () => {
       if (!poster.classList.contains('loaded')) return;
       const prevBase = baseScale || 1;
