@@ -36,24 +36,24 @@
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       overflow:hidden;
+
+      display:grid;
+      place-items:center;
+      padding:18px;
     }
 
-    /* Desktop: 4:5. Mobile: 9:16 (tall). */
+    /* Always portrait (social). Same ratio across desktop/mobile. */
     .poster{
-      width:min(720px, 94vw);
-      aspect-ratio:4/5;
+      width:min(420px, 96vw);
+      aspect-ratio:9/16;
+      max-height:92vh;
+      margin:0 auto;
+
       position:relative;
       background:rgba(0,0,0,.25);
       user-select:none;
       overflow:hidden;
       touch-action:none;
-    }
-    @media(max-width:700px){
-      .poster{
-        width:min(96vw, 520px);
-        aspect-ratio:9/16;
-        max-height:92vh;
-      }
     }
 
     .stage{position:absolute; inset:0; overflow:hidden; z-index:1;}
@@ -64,7 +64,6 @@
       max-width:none;
       pointer-events:none;
       -webkit-user-drag:none;
-      /* subtle on-screen grade */
       filter: contrast(1.07) saturate(1.15) brightness(1.03) sepia(0.06);
     }
 
@@ -174,7 +173,6 @@
     .reveal .affirmation{opacity:1;transform:none}
     .retryHidden #retryBtn{display:none}
 
-    /* Busy overlay */
     .busyOverlay{
       position:absolute; inset:0;
       display:grid; place-items:center;
@@ -207,7 +205,6 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* In-page save viewer (no popups) */
     .saveViewer{
       position:fixed; inset:0;
       z-index:9999;
@@ -255,7 +252,7 @@
           <button type="button" id="copyPng" disabled>Copy PNG</button>
           <button type="button" id="saveViewBtn" disabled>Save / Share</button>
           <button type="button" id="fitBtn" disabled>Fit</button>
-          <button type="button" id="retryBtn" disabled>Retry</button>
+          <button type="button" id="retryBtn" disabled>Start over</button>
         </div>
 
         <div class="hint" id="hint">Drag to reposition • Scroll/pinch to zoom</div>
@@ -288,7 +285,6 @@
     </div>
   </div>
 
-  <!-- In-page Save Viewer -->
   <div class="saveViewer" id="saveViewer" aria-modal="true" role="dialog">
     <div class="svTop">
       <div class="svRow">
@@ -337,14 +333,12 @@
 
     const ua = navigator.userAgent || "";
     const isIOS = /iPad|iPhone|iPod/i.test(ua) && !window.MSStream;
-    const isAndroid = /Android/i.test(ua);
 
-    // Keep decoded image for export (not just <img>)
-    let sourceBitmap = null;         // ImageBitmap (preferred)
-    let sourceImageEl = null;        // fallback HTMLImageElement
+    let sourceBitmap = null;
+    let sourceImageEl = null;
     let currentObjectURL = null;
 
-    // --- 30 affirmations (time-of-day pools) ---
+    // --- affirmations ---
     const MORNING = [
       { main: "This person is allowed a gentle start.", sub: "You don’t need to rush to be worthy." },
       { main: "This person is doing better than they think.", sub: "Even small steps count." },
@@ -429,7 +423,7 @@
       x = 0; y = 0;
       baseScale = computeContainScale();
       scale = baseScale;
-      minScale = baseScale * 0.35;      // allow margins when zooming out
+      minScale = baseScale * 0.35;
       maxScale = Math.max(3.0, baseScale * 6);
       apply();
       resetGestureBaseline();
@@ -460,14 +454,31 @@
       busy.classList.remove('show');
     }
 
-    // --- upload handling (fast preview; safe decode for export) ---
-    chooseBtn.addEventListener('click', () => fileInput.click());
+    // --- save viewer ---
+    function openSaveViewer(dataUrl){
+      svImg.src = dataUrl;
+      svDownloadLink.href = dataUrl;
+      saveViewer.classList.add('show');
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    }
+    function closeSaveViewer(){
+      saveViewer.classList.remove('show');
+      svImg.src = "";
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+    svClose.addEventListener('click', closeSaveViewer);
+    saveViewer.addEventListener('click', (e) => {
+      if (e.target === saveViewer) closeSaveViewer();
+    });
 
+    // --- upload handling ---
+    chooseBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0];
       if (f) loadImage(f);
     });
-
     dropzone.addEventListener('dragover', (e) => e.preventDefault());
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
@@ -483,10 +494,22 @@
       retryBtn.disabled = false;
     }
 
+    async function safeDecodeToBitmap(fileObj){
+      if (!('createImageBitmap' in window)) return null;
+      try{ return await createImageBitmap(fileObj); } catch { return null; }
+    }
+    function safeDecodeToImageElement(url){
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+
     async function loadImage(fileObj){
       pickAffirmation();
 
-      // Fast preview: object URL
       if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
       currentObjectURL = URL.createObjectURL(fileObj);
 
@@ -499,9 +522,6 @@
       photo.src = currentObjectURL;
       photo.alt = "User photo";
 
-      // Decode for export (preemptively, in the background)
-      // Use ImageBitmap when possible (more predictable on Android/desktop).
-      // For iOS, ImageBitmap support varies, so we keep an HTMLImageElement fallback.
       try{
         const bmp = await safeDecodeToBitmap(fileObj);
         sourceBitmap = bmp || null;
@@ -514,33 +534,53 @@
       }
     }
 
-    async function safeDecodeToBitmap(fileObj){
-      // iOS Safari may not support createImageBitmap for all formats; catch and fallback
-      if (!('createImageBitmap' in window)) return null;
-      try{
-        return await createImageBitmap(fileObj);
-      } catch {
-        return null;
-      }
-    }
-
-    function safeDecodeToImageElement(url){
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = url;
-      });
-    }
-
     fitBtn.addEventListener('click', () => {
       if(!poster.classList.contains('loaded')) return;
       fitToScreen();
     });
 
+    // --- Start over: FULL reset (not just new affirmation) ---
+    function resetExperience(){
+      // Close overlays if any
+      try { closeSaveViewer(); } catch {}
+
+      poster.classList.remove('loaded', 'reveal', 'hintHidden');
+      poster.classList.add('retryHidden');
+
+      timersStarted = false;
+
+      scale = 1; x = 0; y = 0; baseScale = 1;
+      minScale = 0.2; maxScale = 3.0;
+      apply();
+      resetGestureBaseline();
+
+      photo.removeAttribute('src');
+      photo.alt = "";
+
+      if (currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+        currentObjectURL = null;
+      }
+
+      if (sourceBitmap && typeof sourceBitmap.close === "function") {
+        try { sourceBitmap.close(); } catch {}
+      }
+      sourceBitmap = null;
+      sourceImageEl = null;
+
+      downloadBtn.disabled = true;
+      copyBtn.disabled = true;
+      saveViewBtn.disabled = true;
+      fitBtn.disabled = true;
+      retryBtn.disabled = true;
+
+      fileInput.value = "";
+
+      pickAffirmation();
+    }
+
     retryBtn.addEventListener('click', () => {
-      if(!poster.classList.contains('loaded')) return;
-      pickAffirmation(); // does not restart timers
+      resetExperience();
     });
 
     // --- gestures (stable; iOS damped) ---
@@ -558,7 +598,6 @@
         apply();
       });
     }
-
     function getDist(a, b){
       const dx = a.clientX - b.clientX;
       const dy = a.clientY - b.clientY;
@@ -595,11 +634,7 @@
       if (pointers.size === 2){
         const [p1, p2] = Array.from(pointers.values());
         const dist = getDist(p1, p2);
-
-        if (!lastPinchDist){
-          lastPinchDist = dist;
-          return;
-        }
+        if (!lastPinchDist){ lastPinchDist = dist; return; }
 
         const rawRatio = dist / lastPinchDist;
         lastPinchDist = dist;
@@ -625,7 +660,6 @@
     poster.addEventListener('pointerup', endPointer);
     poster.addEventListener('pointercancel', endPointer);
 
-    // Desktop wheel zoom
     poster.addEventListener('wheel', (e) => {
       if(!poster.classList.contains('loaded')) return;
       e.preventDefault();
@@ -635,7 +669,6 @@
       apply();
     }, { passive:false });
 
-    // Maintain relative zoom on resize/orientation
     window.addEventListener('resize', () => {
       if (!poster.classList.contains('loaded')) return;
       const prevBase = baseScale || 1;
@@ -652,42 +685,24 @@
 
     // --- Export compositor (no UI capture) ---
     function getExportSize(){
-      // Match your layout intent:
-      // - mobile-ish: 1080x1920 (9:16)
-      // - desktop-ish: 1440x1800 (4:5)
-      const ar = poster.clientWidth / poster.clientHeight;
-      // if close to 9:16 (~0.5625) treat as portrait
-      if (ar < 0.70) return { w: 1080, h: 1920 };
-      return { w: 1440, h: 1800 };
+      return { w: 1080, h: 1920 }; // always social portrait
     }
 
-    function getCurrentPosterState(){
-      // Map current transforms to poster coordinates
-      // photo is centered at poster center, then translate x/y, then scale.
-      // scale here is in "CSS pixels" terms relative to natural size.
-      return { x, y, scale };
-    }
-
+    function getCurrentPosterState(){ return { x, y, scale }; }
     function getSourceDims(){
       if (sourceBitmap) return { w: sourceBitmap.width, h: sourceBitmap.height };
       if (sourceImageEl) return { w: sourceImageEl.naturalWidth, h: sourceImageEl.naturalHeight };
-      // fallback to DOM img
       return { w: photo.naturalWidth || 1, h: photo.naturalHeight || 1 };
     }
-
-    function getSourceDrawable(){
-      return sourceBitmap || sourceImageEl || photo;
-    }
+    function getSourceDrawable(){ return sourceBitmap || sourceImageEl || photo; }
 
     function drawVignette(ctx, w, h){
-      // trendy soft vignette
       const g = ctx.createRadialGradient(w*0.5, h*0.45, Math.min(w,h)*0.20, w*0.5, h*0.45, Math.max(w,h)*0.72);
       g.addColorStop(0.0, "rgba(0,0,0,0)");
       g.addColorStop(1.0, "rgba(0,0,0,0.42)");
       ctx.fillStyle = g;
       ctx.fillRect(0,0,w,h);
 
-      // subtle top glaze
       const g2 = ctx.createLinearGradient(0,0,0,h);
       g2.addColorStop(0,"rgba(255,255,255,0.06)");
       g2.addColorStop(1,"rgba(0,0,0,0.10)");
@@ -696,7 +711,6 @@
     }
 
     function drawGrain(ctx, w, h){
-      // light grain without heavy noise costs
       const grainCanvas = document.createElement('canvas');
       grainCanvas.width = 220;
       grainCanvas.height = 220;
@@ -704,17 +718,14 @@
       const imgData = gctx.createImageData(grainCanvas.width, grainCanvas.height);
       for (let i=0;i<imgData.data.length;i+=4){
         const v = (Math.random()*255)|0;
-        imgData.data[i]=v;
-        imgData.data[i+1]=v;
-        imgData.data[i+2]=v;
-        imgData.data[i+3]=18; // low alpha
+        imgData.data[i]=v; imgData.data[i+1]=v; imgData.data[i+2]=v;
+        imgData.data[i+3]=18;
       }
       gctx.putImageData(imgData,0,0);
 
       ctx.save();
       ctx.globalAlpha = 0.10;
       ctx.globalCompositeOperation = 'overlay';
-      // tile
       const pattern = ctx.createPattern(grainCanvas,'repeat');
       ctx.fillStyle = pattern;
       ctx.fillRect(0,0,w,h);
@@ -730,47 +741,6 @@
       ctx.arcTo(x, y+h, x, y, rr);
       ctx.arcTo(x, y, x+w, y, rr);
       ctx.closePath();
-    }
-
-    function drawAffirmationBox(ctx, w, h){
-      // Only draw if already revealed OR if you want export to always include text:
-      // Requirement: text shows after delay on-screen. For export, users usually expect the final revealed state.
-      // We export WITH text always once an image has been loaded.
-      const padX = Math.round(w * 0.06);
-      const boxW = w - padX*2;
-      const boxH = Math.round(h * 0.17);
-      const x0 = padX;
-      const y0 = h - boxH - Math.round(h*0.04);
-
-      ctx.save();
-      // background blur not available on canvas; emulate with translucent panel
-      ctx.fillStyle = "rgba(0,0,0,0.34)";
-      ctx.strokeStyle = "rgba(255,255,255,0.18)";
-      ctx.lineWidth = Math.max(2, Math.round(w*0.002));
-      roundRect(ctx, x0, y0, boxW, boxH, Math.round(w*0.035));
-      ctx.fill();
-      ctx.stroke();
-
-      // Text
-      const main = affirmMain.textContent || "";
-      const sub  = affirmSub.textContent || "";
-
-      // Fonts: ensure fallback is graceful if Playfair not loaded
-      const mainSize = Math.round(Math.min(72, Math.max(40, w*0.040)));
-      const subSize  = Math.round(Math.min(28, Math.max(20, w*0.018)));
-
-      ctx.fillStyle = "rgba(255,255,255,0.95)";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      ctx.font = `800 ${mainSize}px "Playfair Display", Georgia, serif`;
-      wrapText(ctx, main, w/2, y0 + boxH*0.42, boxW*0.90, mainSize*1.08);
-
-      ctx.fillStyle = "rgba(255,255,255,0.78)";
-      ctx.font = `600 ${subSize}px Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
-      wrapText(ctx, sub, w/2, y0 + boxH*0.74, boxW*0.88, subSize*1.20);
-
-      ctx.restore();
     }
 
     function wrapText(ctx, text, x, y, maxWidth, lineHeight){
@@ -789,7 +759,6 @@
       }
       if (line) lines.push(line);
 
-      // max 2 lines for main/sub; truncate gracefully
       const maxLines = 2;
       let out = lines.slice(0, maxLines);
       if (lines.length > maxLines){
@@ -804,6 +773,41 @@
       }
     }
 
+    function drawAffirmationBox(ctx, w, h){
+      const padX = Math.round(w * 0.06);
+      const boxW = w - padX*2;
+      const boxH = Math.round(h * 0.17);
+      const x0 = padX;
+      const y0 = h - boxH - Math.round(h*0.04);
+
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.34)";
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = Math.max(2, Math.round(w*0.002));
+      roundRect(ctx, x0, y0, boxW, boxH, Math.round(w*0.035));
+      ctx.fill();
+      ctx.stroke();
+
+      const main = affirmMain.textContent || "";
+      const sub  = affirmSub.textContent || "";
+
+      const mainSize = Math.round(Math.min(72, Math.max(40, w*0.040)));
+      const subSize  = Math.round(Math.min(28, Math.max(20, w*0.018)));
+
+      ctx.fillStyle = "rgba(255,255,255,0.95)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      ctx.font = `800 ${mainSize}px "Playfair Display", Georgia, serif`;
+      wrapText(ctx, main, w/2, y0 + boxH*0.42, boxW*0.90, mainSize*1.08);
+
+      ctx.fillStyle = "rgba(255,255,255,0.78)";
+      ctx.font = `600 ${subSize}px Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
+      wrapText(ctx, sub, w/2, y0 + boxH*0.74, boxW*0.88, subSize*1.20);
+
+      ctx.restore();
+    }
+
     function buildExportCanvas(){
       const { w, h } = getExportSize();
       const canvas = document.createElement('canvas');
@@ -811,50 +815,32 @@
       canvas.height = h;
       const ctx = canvas.getContext('2d', { alpha:false });
 
-      // Background
       ctx.fillStyle = "#0b0c10";
       ctx.fillRect(0,0,w,h);
 
-      // Draw photo with current transforms
       const drawable = getSourceDrawable();
       const sd = getSourceDims();
 
-      // Convert current CSS transform (in poster px) to export px
       const pxToExportX = w / poster.clientWidth;
       const pxToExportY = h / poster.clientHeight;
       const exportScaleFactor = (pxToExportX + pxToExportY) / 2;
 
       const state = getCurrentPosterState();
-
-      // Center-based placement
       const cx = w / 2 + state.x * pxToExportX;
       const cy = h / 2 + state.y * pxToExportY;
 
-      // scale is relative to natural image pixels vs CSS pixels.
-      // We want to emulate the DOM: image is rendered at natural size * scale (in CSS pixels)
-      // For export: scale must be adjusted for export pixel density.
-      // Compute base drawing size in export pixels at scale=1:
-      // If DOM image (scale=1) implies 1 CSS px per 1 image px (because max-width:none),
-      // then export uses pxToExport factor.
       const drawW = sd.w * state.scale * exportScaleFactor;
       const drawH = sd.h * state.scale * exportScaleFactor;
 
       ctx.save();
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-
-      // mild grade: mimic CSS filter (approx)
-      // Canvas filter support is decent; if unsupported, it will just ignore.
       ctx.filter = 'contrast(1.07) saturate(1.15) brightness(1.03) sepia(0.06)';
-
       ctx.drawImage(drawable, cx - drawW/2, cy - drawH/2, drawW, drawH);
       ctx.restore();
 
-      // Overlays
       drawVignette(ctx, w, h);
       drawGrain(ctx, w, h);
-
-      // Text
       drawAffirmationBox(ctx, w, h);
 
       return canvas;
@@ -864,26 +850,7 @@
       return await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
     }
 
-    function openSaveViewer(dataUrl){
-      svImg.src = dataUrl;
-      svDownloadLink.href = dataUrl;
-      saveViewer.classList.add('show');
-      document.documentElement.style.overflow = 'hidden';
-      document.body.style.overflow = 'hidden';
-    }
-    function closeSaveViewer(){
-      saveViewer.classList.remove('show');
-      svImg.src = "";
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-    }
-    svClose.addEventListener('click', closeSaveViewer);
-    saveViewer.addEventListener('click', (e) => {
-      if (e.target === saveViewer) closeSaveViewer();
-    });
-
     async function ensureFontsReady(){
-      // Prevent “font not loaded yet” export inconsistencies
       if (document.fonts && document.fonts.ready) {
         try { await document.fonts.ready; } catch {}
       }
@@ -895,11 +862,8 @@
       showBusy("Preparing image…", "Creating a clean export.");
       try{
         await ensureFontsReady();
-
         const canvas = buildExportCanvas();
 
-        // Desktop/Android: direct download is usually OK.
-        // iOS: often blocks; we fallback to save viewer.
         if (!isIOS){
           const blob = await canvasToBlob(canvas);
           const url = URL.createObjectURL(blob);
@@ -913,7 +877,6 @@
 
           setTimeout(() => URL.revokeObjectURL(url), 1500);
         } else {
-          // iOS reliable path: in-page viewer (press & hold to save)
           openSaveViewer(canvas.toDataURL("image/png"));
         }
       } finally {
@@ -935,12 +898,9 @@
             await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
             alert("Copied as PNG. Paste into apps that support image paste.");
             return;
-          } catch {
-            // fall through
-          }
+          } catch {}
         }
 
-        // Fallback: viewer works everywhere
         openSaveViewer(canvas.toDataURL("image/png"));
       } finally {
         hideBusy();
