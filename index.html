@@ -19,19 +19,6 @@
       --shadow:0 10px 30px rgba(0,0,0,.55);
       --radius:18px;
     }
-    @media (max-width: 520px){
-  .controls{
-    justify-content:center;           /* stop pushing right off-screen */
-    gap:8px;
-  }
-  .controls button{
-    padding:9px 12px;                /* slightly tighter */
-    border-radius:11px;
-    font-size:13px;
-    white-space:nowrap;              /* keep each button intact */
-  }
-}
-
     *{box-sizing:border-box}
     body{
       margin:0;
@@ -49,26 +36,27 @@
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       overflow:hidden;
-
-      display:grid;
-      place-items:center;
-      padding:18px;
     }
 
-    /* Always portrait (social). Same ratio across desktop/mobile. */
+    /* Poster frame: Desktop 4:5, Mobile 9:16 */
     .poster{
-      width:min(420px, 96vw);
-      aspect-ratio:9/16;
-      max-height:92vh;
-      margin:0 auto;
-
+      width:min(720px, 94vw);
+      aspect-ratio:4/5;
       position:relative;
       background:rgba(0,0,0,.25);
       user-select:none;
       overflow:hidden;
       touch-action:none;
     }
+    @media(max-width:700px){
+      .poster{
+        width:min(96vw, 520px);
+        aspect-ratio:9/16;
+        max-height:92vh;
+      }
+    }
 
+    /* Image stage */
     .stage{position:absolute; inset:0; overflow:hidden; z-index:1;}
     .stage img{
       position:absolute;
@@ -77,9 +65,11 @@
       max-width:none;
       pointer-events:none;
       -webkit-user-drag:none;
+      /* subtle social-style grade */
       filter: contrast(1.07) saturate(1.15) brightness(1.03) sepia(0.06);
     }
 
+    /* Vignette + film */
     .grade{
       position:absolute; inset:0; pointer-events:none; z-index:3;
       background:
@@ -93,6 +83,7 @@
       background-size:180px 180px;
     }
 
+    /* Upload overlay */
     .uploadOverlay{
       position:absolute; inset:0;
       display:grid; place-items:center;
@@ -128,38 +119,56 @@
     button:active{transform:translateY(1px)}
     button:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
-.controls{
-  position:absolute;
-  top:14px;
-  left:max(12px, env(safe-area-inset-left));
-  right:max(12px, env(safe-area-inset-right));
-  display:none;
-  gap:10px;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-  z-index:20;
+    /* Controls: desktop top, mobile bottom */
+    .controls{
+      position:absolute;
+      top:14px; left:14px; right:14px;
+      display:none;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      z-index:20;
+    }
+    @media(max-width:700px){
+      .controls{
+        top:auto;
+        bottom:calc(14px + env(safe-area-inset-bottom));
+        left:14px;
+        right:14px;
+        justify-content:center;
+      }
+    }
 
-  max-width:calc(100% - 24px); /* prevents off-canvas drift */
-  margin:0 auto;
-}
-
-
+    /* Hint: desktop top-left, mobile above bottom controls */
     .hint{
-      position:absolute; top:14px; left:14px;
+      position:absolute;
+      top:14px; left:14px;
       padding:8px 10px;
       border-radius:12px;
       border:1px solid rgba(255,255,255,.14);
       background:rgba(0,0,0,.28);
       color:rgba(255,255,255,.78);
       font-size:12px;
-      z-index:20;
+      z-index:19;
       opacity:1;
       transition:opacity .35s ease;
     }
+    @media(max-width:700px){
+      .hint{
+        top:auto;
+        left:14px;
+        right:14px;
+        text-align:center;
+        z-index:21;
+        bottom:calc(64px + env(safe-area-inset-bottom));
+      }
+    }
     .hintHidden .hint{opacity:0; pointer-events:none;}
 
+    /* Affirmation: reveal after delay; lifted on mobile to avoid controls */
     .affirmation{
-      position:absolute; left:16px; right:16px; bottom:18px;
+      position:absolute; left:16px; right:16px;
+      bottom:18px;
       padding:16px 18px;
       text-align:center;
       border-radius:18px;
@@ -172,6 +181,11 @@
       opacity:0;
       transform:translateY(12px);
       transition:opacity .65s ease, transform .65s ease;
+    }
+    @media(max-width:700px){
+      .affirmation{
+        bottom:calc(96px + env(safe-area-inset-bottom));
+      }
     }
     .affirmation .main{
       font-family:"Playfair Display", serif;
@@ -193,6 +207,7 @@
     .reveal .affirmation{opacity:1;transform:none}
     .retryHidden #retryBtn{display:none}
 
+    /* Busy overlay (export) */
     .busyOverlay{
       position:absolute; inset:0;
       display:grid; place-items:center;
@@ -225,6 +240,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* In-page save viewer (mobile-safe, no popups) */
     .saveViewer{
       position:fixed; inset:0;
       z-index:9999;
@@ -250,9 +266,19 @@
     .svText{max-width:620px;}
     .svText h3{margin:0 0 4px; font-size:14px; font-weight:850}
     .svText p{margin:0; font-size:12px; color:rgba(255,255,255,.78); line-height:1.35}
-    .svImgWrap{display:grid;place-items:center;max-width:900px;margin:0 auto 30px;}
-    .svImg{max-width:100%;height:auto;border-radius:14px;border:1px solid rgba(255,255,255,.12)}
-    .svBtns{display:flex;gap:10px;flex-wrap:wrap}
+    .svImgWrap{
+      display:grid;
+      place-items:center;
+      max-width:900px;
+      margin:0 auto 30px;
+    }
+    .svImg{
+      max-width:100%;
+      height:auto;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .svBtns{display:flex; gap:10px; flex-wrap:wrap;}
   </style>
 </head>
 
@@ -260,6 +286,7 @@
   <div class="wrap">
     <div class="card">
       <div id="poster" class="poster">
+
         <div class="stage">
           <img id="photo" alt="" />
         </div>
@@ -272,7 +299,7 @@
           <button type="button" id="copyPng" disabled>Copy PNG</button>
           <button type="button" id="saveViewBtn" disabled>Save / Share</button>
           <button type="button" id="fitBtn" disabled>Fit</button>
-          <button type="button" id="retryBtn" disabled>Start over</button>
+          <button type="button" id="retryBtn" disabled>Retry</button>
         </div>
 
         <div class="hint" id="hint">Drag to reposition • Scroll/pinch to zoom</div>
@@ -296,7 +323,7 @@
         <div class="busyOverlay" id="busy">
           <div class="busyCard">
             <p class="busyTitle" id="busyTitle">Working…</p>
-            <p class="busyText" id="busyText">This can take a moment.</p>
+            <p class="busyText" id="busyText">This can take a moment on some phones.</p>
             <div class="spinner"></div>
           </div>
         </div>
@@ -305,14 +332,16 @@
     </div>
   </div>
 
+  <!-- In-page Save Viewer -->
   <div class="saveViewer" id="saveViewer" aria-modal="true" role="dialog">
     <div class="svTop">
       <div class="svRow">
         <div class="svText">
           <h3>Save your poster</h3>
           <p>
-            iPhone/iPad: press and hold the image → <b>Save to Photos</b> / <b>Share</b>.<br>
-            Android: long-press → <b>Download image</b> or share. Desktop: right-click → Save image.
+            iPhone/iPad: press and hold the image → <b>Save to Photos</b> / <b>Share</b>.
+            Android: long-press → <b>Download image</b> or share.
+            Desktop: right-click → <b>Save image as…</b>
           </p>
         </div>
         <div class="svBtns">
@@ -326,7 +355,10 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
   <script>
+    // Elements
     const poster = document.getElementById('poster');
     const photo = document.getElementById('photo');
     const fileInput = document.getElementById('file');
@@ -351,14 +383,15 @@
     const svClose = document.getElementById('svClose');
     const svDownloadLink = document.getElementById('svDownloadLink');
 
-    const ua = navigator.userAgent || "";
-    const isIOS = /iPad|iPhone|iPod/i.test(ua) && !window.MSStream;
+    const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent) && !window.MSStream;
+    const isAndroid = /Android/i.test(navigator.userAgent);
 
-    let sourceBitmap = null;
-    let sourceImageEl = null;
+    // Track object URL for memory cleanup
     let currentObjectURL = null;
 
-    // --- affirmations ---
+    // -------------------------
+    // Time-of-day affirmations (30 total)
+    // -------------------------
     const MORNING = [
       { main: "This person is allowed a gentle start.", sub: "You don’t need to rush to be worthy." },
       { main: "This person is doing better than they think.", sub: "Even small steps count." },
@@ -405,6 +438,7 @@
       if (h >= 17 && h < 22) return "evening";
       return "late";
     }
+
     function pickAffirmation(){
       const p = dayPart();
       const pool = (p === "morning") ? MORNING
@@ -416,55 +450,9 @@
       affirmSub.textContent  = pick.sub;
     }
 
-    // --- transform state ---
-    let scale = 1, x = 0, y = 0;
-    let baseScale = 1, minScale = 0.2, maxScale = 3.0;
-
-    function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
-    function apply(){
-      photo.style.transform = `translate(-50%,-50%) translate(${x}px,${y}px) scale(${scale})`;
-    }
-    function computeContainScale(){
-      const pw = poster.clientWidth;
-      const ph = poster.clientHeight;
-      const iw = photo.naturalWidth || 1;
-      const ih = photo.naturalHeight || 1;
-      return Math.min(pw / iw, ph / ih) * 0.98;
-    }
-
-    const pointers = new Map();
-    let lastPinchDist = null;
-    function resetGestureBaseline(){
-      pointers.clear();
-      lastPinchDist = null;
-    }
-
-    function fitToScreen(){
-      x = 0; y = 0;
-      baseScale = computeContainScale();
-      scale = baseScale;
-      minScale = baseScale * 0.35;
-      maxScale = Math.max(3.0, baseScale * 6);
-      apply();
-      resetGestureBaseline();
-    }
-
-    // --- one-time timers from first image load ---
-    let timersStarted = false;
-    function startOneTimeTimers(){
-      if (timersStarted) return;
-      timersStarted = true;
-
-      poster.classList.remove('reveal');
-      poster.classList.remove('hintHidden');
-      poster.classList.add('retryHidden');
-
-      setTimeout(() => poster.classList.add('hintHidden'), 5000);
-      setTimeout(() => poster.classList.add('reveal'), 6000);
-      setTimeout(() => poster.classList.remove('retryHidden'), 20000);
-    }
-
-    // --- busy overlay ---
+    // -------------------------
+    // Busy overlay helpers
+    // -------------------------
     function showBusy(title, text){
       busyTitle.textContent = title || "Working…";
       busyText.textContent = text || "This can take a moment.";
@@ -474,7 +462,9 @@
       busy.classList.remove('show');
     }
 
-    // --- save viewer ---
+    // -------------------------
+    // Save viewer helpers
+    // -------------------------
     function openSaveViewer(dataUrl){
       svImg.src = dataUrl;
       svDownloadLink.href = dataUrl;
@@ -493,65 +483,105 @@
       if (e.target === saveViewer) closeSaveViewer();
     });
 
-    // --- upload handling ---
+    // -------------------------
+    // Transform state (fit + margins)
+    // -------------------------
+    let scale = 1, x = 0, y = 0;
+    let baseScale = 1, minScale = 0.2, maxScale = 3.0;
+
+    function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+    function apply(){
+      photo.style.transform = `translate(-50%,-50%) translate(${x}px,${y}px) scale(${scale})`;
+    }
+
+    function computeContainScale(){
+      const pw = poster.clientWidth;
+      const ph = poster.clientHeight;
+      const iw = photo.naturalWidth || 1;
+      const ih = photo.naturalHeight || 1;
+      return Math.min(pw / iw, ph / ih) * 0.98;
+    }
+
+    const pointers = new Map();
+    let lastPinchDist = null;
+
+    function resetGestureBaseline(){
+      pointers.clear();
+      lastPinchDist = null;
+    }
+
+    function fitToScreen(){
+      x = 0; y = 0;
+      baseScale = computeContainScale();
+      scale = baseScale;
+      minScale = baseScale * 0.35;
+      maxScale = Math.max(3.0, baseScale * 6);
+      apply();
+      resetGestureBaseline();
+    }
+
+    // -------------------------
+    // Timers (ONLY from initial image load)
+    // - hint hides after 5s
+    // - affirmation reveals after 6s
+    // - retry appears after 20s
+    // Retry does NOT restart these.
+    // -------------------------
+    let timersStarted = false;
+    function startOneTimeTimers(){
+      if (timersStarted) return;
+      timersStarted = true;
+
+      poster.classList.remove('reveal');
+      poster.classList.remove('hintHidden');
+      poster.classList.add('retryHidden');
+
+      setTimeout(() => poster.classList.add('hintHidden'), 5000);
+      setTimeout(() => poster.classList.add('reveal'), 6000);
+      setTimeout(() => poster.classList.remove('retryHidden'), 20000);
+    }
+
+    // -------------------------
+    // Upload handling (fast on iOS)
+    // -------------------------
     chooseBtn.addEventListener('click', () => fileInput.click());
+
     fileInput.addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0];
-      if (f) loadImage(f);
+      if (f) loadImageFast(f);
     });
+
     dropzone.addEventListener('dragover', (e) => e.preventDefault());
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) loadImage(f);
+      if (f) loadImageFast(f);
     });
 
-    function enableControls(){
-      downloadBtn.disabled = false;
-      copyBtn.disabled = false;
-      saveViewBtn.disabled = false;
-      fitBtn.disabled = false;
-      retryBtn.disabled = false;
-    }
-
-    async function safeDecodeToBitmap(fileObj){
-      if (!('createImageBitmap' in window)) return null;
-      try{ return await createImageBitmap(fileObj); } catch { return null; }
-    }
-    function safeDecodeToImageElement(url){
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = url;
-      });
-    }
-
-    async function loadImage(fileObj){
+    async function loadImageFast(fileObj){
       pickAffirmation();
 
-      if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+      if (currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+        currentObjectURL = null;
+      }
+
       currentObjectURL = URL.createObjectURL(fileObj);
 
       photo.onload = () => {
         poster.classList.add('loaded');
-        enableControls();
+        downloadBtn.disabled = false;
+        copyBtn.disabled = false;
+        saveViewBtn.disabled = false;
+        fitBtn.disabled = false;
+        retryBtn.disabled = false;
+
         fitToScreen();
         startOneTimeTimers();
       };
+
       photo.src = currentObjectURL;
       photo.alt = "User photo";
-
-      try{
-        const bmp = await safeDecodeToBitmap(fileObj);
-        sourceBitmap = bmp || null;
-      } catch {
-        sourceBitmap = null;
-      }
-
-      if (!sourceBitmap){
-        sourceImageEl = await safeDecodeToImageElement(currentObjectURL);
-      }
     }
 
     fitBtn.addEventListener('click', () => {
@@ -559,51 +589,14 @@
       fitToScreen();
     });
 
-    // --- Start over: FULL reset (not just new affirmation) ---
-    function resetExperience(){
-      // Close overlays if any
-      try { closeSaveViewer(); } catch {}
-
-      poster.classList.remove('loaded', 'reveal', 'hintHidden');
-      poster.classList.add('retryHidden');
-
-      timersStarted = false;
-
-      scale = 1; x = 0; y = 0; baseScale = 1;
-      minScale = 0.2; maxScale = 3.0;
-      apply();
-      resetGestureBaseline();
-
-      photo.removeAttribute('src');
-      photo.alt = "";
-
-      if (currentObjectURL) {
-        URL.revokeObjectURL(currentObjectURL);
-        currentObjectURL = null;
-      }
-
-      if (sourceBitmap && typeof sourceBitmap.close === "function") {
-        try { sourceBitmap.close(); } catch {}
-      }
-      sourceBitmap = null;
-      sourceImageEl = null;
-
-      downloadBtn.disabled = true;
-      copyBtn.disabled = true;
-      saveViewBtn.disabled = true;
-      fitBtn.disabled = true;
-      retryBtn.disabled = true;
-
-      fileInput.value = "";
-
-      pickAffirmation();
-    }
-
     retryBtn.addEventListener('click', () => {
-      resetExperience();
+      if(!poster.classList.contains('loaded')) return;
+      pickAffirmation();
     });
 
-    // --- gestures (stable; iOS damped) ---
+    // -------------------------
+    // Gestures: stable iOS pinch/drag + desktop wheel
+    // -------------------------
     const DRAG_SENS = isIOS ? 0.45 : 1.0;
     const PINCH_SENS = isIOS ? 0.18 : 1.0;
     const PINCH_DEADZONE = isIOS ? 0.012 : 0.0;
@@ -618,6 +611,7 @@
         apply();
       });
     }
+
     function getDist(a, b){
       const dx = a.clientX - b.clientX;
       const dy = a.clientY - b.clientY;
@@ -654,7 +648,11 @@
       if (pointers.size === 2){
         const [p1, p2] = Array.from(pointers.values());
         const dist = getDist(p1, p2);
-        if (!lastPinchDist){ lastPinchDist = dist; return; }
+
+        if (!lastPinchDist){
+          lastPinchDist = dist;
+          return;
+        }
 
         const rawRatio = dist / lastPinchDist;
         lastPinchDist = dist;
@@ -662,8 +660,8 @@
         if (Math.abs(rawRatio - 1) < PINCH_DEADZONE) return;
 
         const intendedRatio = 1 + ((rawRatio - 1) * PINCH_SENS);
-        const nextScale = scale * intendedRatio;
 
+        let nextScale = scale * intendedRatio;
         const delta = nextScale - scale;
         const clampedDelta = clamp(delta, -MAX_SCALE_STEP, MAX_SCALE_STEP);
 
@@ -687,7 +685,7 @@
       const factor = (delta > 0) ? 1.08 : 0.92;
       scale = clamp(scale * factor, minScale, maxScale);
       apply();
-    }, { passive:false });
+    }, { passive: false });
 
     window.addEventListener('resize', () => {
       if (!poster.classList.contains('loaded')) return;
@@ -703,248 +701,78 @@
       resetGestureBaseline();
     });
 
-    // --- Export compositor (no UI capture) ---
-    function getExportSize(){
-      return { w: 1080, h: 1920 }; // always social portrait
+    // -------------------------
+    // Export: viewer-first on mobile, attempt normal ops on desktop
+    // -------------------------
+    async function captureCanvas(){
+      return await html2canvas(poster, {
+        scale: 2,
+        backgroundColor: "#0b0c10",
+        useCORS: true
+      });
     }
 
-    function getCurrentPosterState(){ return { x, y, scale }; }
-    function getSourceDims(){
-      if (sourceBitmap) return { w: sourceBitmap.width, h: sourceBitmap.height };
-      if (sourceImageEl) return { w: sourceImageEl.naturalWidth, h: sourceImageEl.naturalHeight };
-      return { w: photo.naturalWidth || 1, h: photo.naturalHeight || 1 };
-    }
-    function getSourceDrawable(){ return sourceBitmap || sourceImageEl || photo; }
-
-    function drawVignette(ctx, w, h){
-      const g = ctx.createRadialGradient(w*0.5, h*0.45, Math.min(w,h)*0.20, w*0.5, h*0.45, Math.max(w,h)*0.72);
-      g.addColorStop(0.0, "rgba(0,0,0,0)");
-      g.addColorStop(1.0, "rgba(0,0,0,0.42)");
-      ctx.fillStyle = g;
-      ctx.fillRect(0,0,w,h);
-
-      const g2 = ctx.createLinearGradient(0,0,0,h);
-      g2.addColorStop(0,"rgba(255,255,255,0.06)");
-      g2.addColorStop(1,"rgba(0,0,0,0.10)");
-      ctx.fillStyle = g2;
-      ctx.fillRect(0,0,w,h);
-    }
-
-    function drawGrain(ctx, w, h){
-      const grainCanvas = document.createElement('canvas');
-      grainCanvas.width = 220;
-      grainCanvas.height = 220;
-      const gctx = grainCanvas.getContext('2d');
-      const imgData = gctx.createImageData(grainCanvas.width, grainCanvas.height);
-      for (let i=0;i<imgData.data.length;i+=4){
-        const v = (Math.random()*255)|0;
-        imgData.data[i]=v; imgData.data[i+1]=v; imgData.data[i+2]=v;
-        imgData.data[i+3]=18;
-      }
-      gctx.putImageData(imgData,0,0);
-
-      ctx.save();
-      ctx.globalAlpha = 0.10;
-      ctx.globalCompositeOperation = 'overlay';
-      const pattern = ctx.createPattern(grainCanvas,'repeat');
-      ctx.fillStyle = pattern;
-      ctx.fillRect(0,0,w,h);
-      ctx.restore();
-    }
-
-    function roundRect(ctx, x, y, w, h, r){
-      const rr = Math.min(r, w/2, h/2);
-      ctx.beginPath();
-      ctx.moveTo(x+rr, y);
-      ctx.arcTo(x+w, y, x+w, y+h, rr);
-      ctx.arcTo(x+w, y+h, x, y+h, rr);
-      ctx.arcTo(x, y+h, x, y, rr);
-      ctx.arcTo(x, y, x+w, y, rr);
-      ctx.closePath();
-    }
-
-    function wrapText(ctx, text, x, y, maxWidth, lineHeight){
-      const words = (text || "").split(/\s+/).filter(Boolean);
-      if (!words.length) return;
-      let line = "";
-      const lines = [];
-      for (const w of words){
-        const test = line ? (line + " " + w) : w;
-        if (ctx.measureText(test).width <= maxWidth){
-          line = test;
-        } else {
-          if (line) lines.push(line);
-          line = w;
-        }
-      }
-      if (line) lines.push(line);
-
-      const maxLines = 2;
-      let out = lines.slice(0, maxLines);
-      if (lines.length > maxLines){
-        out[maxLines-1] = out[maxLines-1].replace(/\s+\S+$/, "…");
-      }
-
-      const totalH = out.length * lineHeight;
-      let yy = y - totalH/2 + lineHeight/2;
-      for (const l of out){
-        ctx.fillText(l, x, yy);
-        yy += lineHeight;
-      }
-    }
-
-    function drawAffirmationBox(ctx, w, h){
-      const padX = Math.round(w * 0.06);
-      const boxW = w - padX*2;
-      const boxH = Math.round(h * 0.17);
-      const x0 = padX;
-      const y0 = h - boxH - Math.round(h*0.04);
-
-      ctx.save();
-      ctx.fillStyle = "rgba(0,0,0,0.34)";
-      ctx.strokeStyle = "rgba(255,255,255,0.18)";
-      ctx.lineWidth = Math.max(2, Math.round(w*0.002));
-      roundRect(ctx, x0, y0, boxW, boxH, Math.round(w*0.035));
-      ctx.fill();
-      ctx.stroke();
-
-      const main = affirmMain.textContent || "";
-      const sub  = affirmSub.textContent || "";
-
-      const mainSize = Math.round(Math.min(72, Math.max(40, w*0.040)));
-      const subSize  = Math.round(Math.min(28, Math.max(20, w*0.018)));
-
-      ctx.fillStyle = "rgba(255,255,255,0.95)";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      ctx.font = `800 ${mainSize}px "Playfair Display", Georgia, serif`;
-      wrapText(ctx, main, w/2, y0 + boxH*0.42, boxW*0.90, mainSize*1.08);
-
-      ctx.fillStyle = "rgba(255,255,255,0.78)";
-      ctx.font = `600 ${subSize}px Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`;
-      wrapText(ctx, sub, w/2, y0 + boxH*0.74, boxW*0.88, subSize*1.20);
-
-      ctx.restore();
-    }
-
-    function buildExportCanvas(){
-      const { w, h } = getExportSize();
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d', { alpha:false });
-
-      ctx.fillStyle = "#0b0c10";
-      ctx.fillRect(0,0,w,h);
-
-      const drawable = getSourceDrawable();
-      const sd = getSourceDims();
-
-      const pxToExportX = w / poster.clientWidth;
-      const pxToExportY = h / poster.clientHeight;
-      const exportScaleFactor = (pxToExportX + pxToExportY) / 2;
-
-      const state = getCurrentPosterState();
-      const cx = w / 2 + state.x * pxToExportX;
-      const cy = h / 2 + state.y * pxToExportY;
-
-      const drawW = sd.w * state.scale * exportScaleFactor;
-      const drawH = sd.h * state.scale * exportScaleFactor;
-
-      ctx.save();
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.filter = 'contrast(1.07) saturate(1.15) brightness(1.03) sepia(0.06)';
-      ctx.drawImage(drawable, cx - drawW/2, cy - drawH/2, drawW, drawH);
-      ctx.restore();
-
-      drawVignette(ctx, w, h);
-      drawGrain(ctx, w, h);
-      drawAffirmationBox(ctx, w, h);
-
-      return canvas;
-    }
-
-    async function canvasToBlob(canvas){
-      return await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    }
-
-    async function ensureFontsReady(){
-      if (document.fonts && document.fonts.ready) {
-        try { await document.fonts.ready; } catch {}
-      }
-    }
-
-    async function downloadPNG(){
-      if(!poster.classList.contains('loaded')) return;
-
-      showBusy("Preparing image…", "Creating a clean export.");
+    async function renderAndShow(){
+      if (!poster.classList.contains('loaded')) return;
+      showBusy("Creating image…", "On some phones this can take a moment with high-res photos.");
       try{
-        await ensureFontsReady();
-        const canvas = buildExportCanvas();
-
-        if (!isIOS){
-          const blob = await canvasToBlob(canvas);
-          const url = URL.createObjectURL(blob);
-
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = "poster.png";
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-
-          setTimeout(() => URL.revokeObjectURL(url), 1500);
-        } else {
-          openSaveViewer(canvas.toDataURL("image/png"));
-        }
+        const canvas = await captureCanvas();
+        const dataUrl = canvas.toDataURL("image/png");
+        openSaveViewer(dataUrl);
       } finally {
         hideBusy();
       }
     }
 
-    async function copyPNG(){
-      if(!poster.classList.contains('loaded')) return;
+    saveViewBtn.addEventListener('click', renderAndShow);
 
-      showBusy("Preparing image…", "Copying (or opening save screen).");
+    downloadBtn.addEventListener('click', async () => {
+      if (!poster.classList.contains('loaded')) return;
+
+      // Mobile: go straight to viewer (reliable)
+      if (isIOS || isAndroid) return renderAndShow();
+
+      showBusy("Preparing download…", "Hang tight.");
       try{
-        await ensureFontsReady();
-        const canvas = buildExportCanvas();
+        const canvas = await captureCanvas();
+        const dataUrl = canvas.toDataURL("image/png");
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = "poster.png";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch {
+        await renderAndShow();
+      } finally {
+        hideBusy();
+      }
+    });
 
-        if (!isIOS && navigator.clipboard && window.ClipboardItem) {
-          const blob = await canvasToBlob(canvas);
-          try{
-            await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-            alert("Copied as PNG. Paste into apps that support image paste.");
-            return;
-          } catch {}
+    copyBtn.addEventListener('click', async () => {
+      if (!poster.classList.contains('loaded')) return;
+
+      // Mobile: go straight to viewer (reliable)
+      if (isIOS || isAndroid) return renderAndShow();
+
+      showBusy("Copying image…", "If blocked, we’ll show a save screen.");
+      try{
+        const canvas = await captureCanvas();
+        const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+        if (navigator.clipboard && window.ClipboardItem && blob) {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          alert("Copied as PNG. Paste into apps that support image paste.");
+          return;
         }
-
-        openSaveViewer(canvas.toDataURL("image/png"));
+        await renderAndShow();
+      } catch {
+        await renderAndShow();
       } finally {
         hideBusy();
       }
-    }
+    });
 
-    async function saveShare(){
-      if(!poster.classList.contains('loaded')) return;
-
-      showBusy("Preparing image…", "Opening a save/share screen.");
-      try{
-        await ensureFontsReady();
-        const canvas = buildExportCanvas();
-        openSaveViewer(canvas.toDataURL("image/png"));
-      } finally {
-        hideBusy();
-      }
-    }
-
-    downloadBtn.addEventListener('click', downloadPNG);
-    copyBtn.addEventListener('click', copyPNG);
-    saveViewBtn.addEventListener('click', saveShare);
-
-    // init
+    // Init
     poster.classList.add('retryHidden');
     pickAffirmation();
     apply();
